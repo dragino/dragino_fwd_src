@@ -527,7 +527,7 @@ static void pkt_prepare_downlink(void* arg) {
     FILE *fp;
     struct dirent *ptr;
     struct stat statbuf;
-    char dn_file[128]; 
+    char dn_file[256]; 
 
     /* data buffers */
     uint8_t buff_down[512]; /* buffer to receive downstream packets */

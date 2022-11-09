@@ -18,6 +18,13 @@ WAIT_GPIO() {
 }
 
 init() {
+    # setup I2C port
+    if [[ -e /dev/i2c-0  &&  ! -e /dev/i2c-1 ]]; then
+        ln -sf /dev/i2c-0 /dev/i2c-1
+    elif [[ -e /dev/i2c-1  &&  ! -e /dev/i2c-0 ]]; then
+        ln -sf /dev/i2c-1 /dev/i2c-0
+    fi
+
     # setup GPIOs
     echo "$SX1302_RESET_PIN" > /sys/class/gpio/export; WAIT_GPIO
 
@@ -44,14 +51,14 @@ term() {
 
 case "$1" in
     start)
-    term # just in case
-    init
-    reset
-    ;;
+        term # just in case
+        init
+        reset
+        ;;
     stop)
-    reset
-    term
-    ;;
+        reset
+        term
+        ;;
     *)
     echo "Usage: $0 {start|stop}"
     exit 1

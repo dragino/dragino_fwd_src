@@ -968,7 +968,7 @@ static void thread_jit(void) {
                                 }
                             }
                             if (!matching) {
-                                lgw_log(LOG_DEBUG, "DEBUG~ [LBT] count_us not found in lbt queue\n", i);
+                                lgw_log(LOG_DEBUG, "DEBUG~ [LBT] count_us not found in lbt queue\n");
                                 chanisfree = false;
                             }
                         }
