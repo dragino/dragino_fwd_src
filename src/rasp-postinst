@@ -1,3 +1,5 @@
 #!/bin/bash
 PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 VER="2022-05-26"
+systemctl enable draginofwd
+systemctl restart draginofwd

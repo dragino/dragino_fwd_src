@@ -76,6 +76,7 @@ mkdir -p pi_pkg/usr/bin
 case "$board" in 
     "hp0c")
         cp -f hp0z-postinst DEBIAN/postinst
+        cp -f hp0z-preinst DEBIAN/preinst
         cp -rf config/cfg-30? pi_pkg/etc/lora/
         install -m 755 sx1302hal/libsx1302hal.so pi_pkg/usr/lib/libsx1302hal.so
         install -m 755 sx1302hal/test_loragw_hal_rx pi_pkg/usr/bin/rx_test
@@ -91,6 +92,7 @@ case "$board" in
         ;;
     "hp0d")
         cp -f hp0z-postinst DEBIAN/postinst
+        cp -f hp0z-preinst DEBIAN/preinst
         cp -rf config/cfg-30? pi_pkg/etc/lora/
         install -m 755 sx1302hal/libsx1302hal.so pi_pkg/usr/lib/libsx1302hal.so
         install -m 755 sx1302hal/test_loragw_hal_rx pi_pkg/usr/bin/rx_test
