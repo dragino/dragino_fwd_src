@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # This script is intended to be used on SX1302 CoreCell platform, it performs
 # the following actions:
