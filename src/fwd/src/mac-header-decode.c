@@ -126,7 +126,7 @@ void decode_mac_pkt_up(LoRaMacMessageData_t* macMsg, void* pkt)
     char cat[3] = {'\0'};
     char pdtype[17] = {'\0'};
     char content[256] = {'\0'};
-    char payloadhex[480] = {'\0'};
+    char payloadhex[512] = {'\0'};
     uint32_t devaddr;
 
 	struct lgw_pkt_rx_s* p = (struct lgw_pkt_rx_s*)pkt;
@@ -249,7 +249,7 @@ void decode_mac_pkt_down(LoRaMacMessageData_t* macMsg, void* pkt)
     char cat[3] = {'\0'};
     char pdtype[17] = {'\0'};
     char content[256] = {'\0'};
-    char payloadhex[480] = {'\0'};
+    char payloadhex[512] = {'\0'};
 
 	struct lgw_pkt_tx_s* p = (struct lgw_pkt_tx_s*)pkt;
 
