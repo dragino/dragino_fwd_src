@@ -362,7 +362,7 @@ static int freq2band (u4_t freq) {
         return DC_DECI;
     if( (freq >= 868000000 && freq <= 868600000) || (freq >= 869700000 && freq <= 870000000) )
         return DC_CENTI;
-    return DC_MILLI;
+    return DC_DECI;
 }
 
 static void update_DC (s2ctx_t* s2ctx, txjob_t* txj) {
@@ -482,9 +482,10 @@ static int s2e_canTxEU868 (s2ctx_t* s2ctx, txjob_t* txjob, int* ccaDisabled) {
         return 1;   // clear channel analysis not required
     }
     // No DC in band
-    LOG(MOD_S2E|VERBOSE, "%J %F - no DC in band: txtime=%>.3T free=%>.3T",
-        txjob, txjob->freq, rt_ustime2utc(txtime), rt_ustime2utc(band_exp));
-    return 0;
+    //LOG(MOD_S2E|VERBOSE, "%J %F - no DC in band: txtime=%>.3T free=%>.3T",
+    //   txjob, txjob->freq, rt_ustime2utc(txtime), rt_ustime2utc(band_exp));
+
+    return 1;
 }
 
 
@@ -642,14 +643,6 @@ ustime_t s2e_nextTxAction (s2ctx_t* s2ctx, u1_t txunit) {
             }
             // Looks like it's on air
             update_DC(s2ctx, curr);
-            
-            
-            
-            
-            
-            
-            
-
             curr->txflags |= TXFLAG_TXCHECKED;
             // sending dntxed here instead @txend gives nwks more time to update/inform muxs (join)
             send_dntxed(s2ctx, curr);

@@ -71,6 +71,8 @@
 
 #define DEFAULT_RXPKTS_LIST_SIZE            8           
 
+#define  MAX_RXPKTS_LIST_SIZE               64         /* MAX sizeof RXPKTS */
+
 #define TX_BUFF_SIZE                        ((540 * NB_PKT_MAX) + 30 + STATUS_SIZE)
 
 #define PKT_PUSH_DATA                       0

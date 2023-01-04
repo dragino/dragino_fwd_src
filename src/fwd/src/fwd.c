@@ -782,7 +782,7 @@ static void thread_up(void) {
 	/* allocate memory for packet fetching and processing */
 	struct lgw_pkt_rx_s rxpkt[NB_PKT_MAX];	/* array containing inbound packets + metadata */
 	int nb_pkt;
-    uint32_t lastest_us = 0;
+    //uint32_t lastest_us = 0;
 
     rxpkts_s *rxpkt_entry = NULL;
     serv_s* serv_entry = NULL;
@@ -815,7 +815,7 @@ static void thread_up(void) {
 			continue;
 		}
 
-        lastest_us = rxpkt[0].count_us;
+        //lastest_us = rxpkt[0].count_us;
 
         rxpkt_entry = lgw_malloc(sizeof(rxpkts_s));     //rxpkts结构体包含有一个lora_pkt_rx_s结构数组
 
@@ -824,7 +824,7 @@ static void thread_up(void) {
         }
 
         rxpkt_entry->list.next = NULL;
-        rxpkt_entry->entry_us = lastest_us;
+        rxpkt_entry->entry_us = cur_hal_time;
         rxpkt_entry->stamps = 0;
         rxpkt_entry->nb_pkt = nb_pkt;
         rxpkt_entry->bind = GW.serv_list.size;
@@ -886,6 +886,17 @@ static void thread_rxpkt_recycle(void) {
             LGW_LIST_TRAVERSE_SAFE_END;
             LGW_LIST_UNLOCK(&GW.rxpkts_list);
 	    }
+
+        if (GW.rxpkts_list.size > MAX_RXPKTS_LIST_SIZE) {   
+            LGW_LIST_LOCK(&GW.rxpkts_list);
+            LGW_LIST_TRAVERSE_SAFE_BEGIN(&GW.rxpkts_list, rxpkt_entry, list) {
+                LGW_LIST_REMOVE_CURRENT(list);
+                lgw_free(rxpkt_entry);
+                GW.rxpkts_list.size--;
+            }
+            LGW_LIST_TRAVERSE_SAFE_END;
+            LGW_LIST_UNLOCK(&GW.rxpkts_list);
+        }
     }
 
 	lgw_log(LOG_INFO, "INFO~ [Recycle-service] End of rxpkt recycle thread\n");

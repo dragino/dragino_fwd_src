@@ -142,5 +142,28 @@ usb module can only make 60ms scan loop.
 1. custom downlink add fport control
 2. chan fwd VERSION to 2.7.5
 
-## 2022/00/13
+## 2022/10/13
 1. basicstaion version upgrade to V2.0.6 (openwrt platform)
+
+## 2022/10/17
+1. fix sx1302 gps GRMC parser error
+
+## 2022/11/01
+1. log display of SF 
+2. custom down option of bw
+
+## 2022/11/04  fwd-2.7.8
+1. fix bug: can't remove pkt on rxpkts link
+   post sem to all service when pkt size more than 8 
+   post sem after receive pkt?
+2. add sem lock when getrxpkt
+
+## 2022/11/16  fwd-2.7.9
+1. fix bug: ( stack over ) fwd/src/mac-header-decode.c  change payloaden size 480 to 512
+
+## 2022/11/30  fwd-2.7.9
+1. change insert rxpkgs times, use cur_hal_time
+2.  add  MAX_RXPKTS_LIST_SIZE 
+
+## 2022/12/30  fwd-2.7.9
+1.station: timeline is not correct of downlink, because OS is not RT system, remove time conditon when EU8686.
