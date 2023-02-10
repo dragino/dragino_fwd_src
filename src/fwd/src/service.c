@@ -60,6 +60,8 @@ int init_sock(const char *addr, const char *port, const void *timeout, int size)
 	hints.ai_family = AF_INET;	/* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
 	hints.ai_socktype = SOCK_DGRAM;
 
+	//lgw_log(LOG_INFO, "INFO~ [init_sock] getaddrinfo on address %s (PORT %s)\n", addr, port);
+
 	/* look for server address w/ upstream port */
 	i = getaddrinfo(addr, port, &hints, &result);
 	if (i != 0) {
@@ -80,8 +82,7 @@ int init_sock(const char *addr, const char *port, const void *timeout, int size)
 		lgw_log(LOG_ERROR, "ERROR~ [init_sock] failed to open socket to any of server %s addresses (port %s)\n", addr, port);
 		i = 1;
 		for (q = result; q != NULL; q = q->ai_next) {
-			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name,
-						port_name, sizeof port_name, NI_NUMERICHOST);
+			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
 			++i;
 		}
 

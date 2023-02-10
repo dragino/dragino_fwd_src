@@ -56,7 +56,7 @@ static void semtech_push_up(void* arg);
 static enum jit_error_e lbt_enqueue(struct lgw_pkt_tx_s* packet, uint32_t time_us);
 
 int semtech_start(serv_s* serv) {
-    char family[64] = {'\0'};
+    char family[128] = {'\0'};
 
     serv->net->sock_up = init_sock((char *)&serv->net->addr, (char *)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
     serv->net->sock_down = init_sock((char *)&serv->net->addr, (char *)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
@@ -76,17 +76,14 @@ int semtech_start(serv_s* serv) {
     serv->state.connecting = false;
     lgw_db_put("service/lorawan", serv->info.name, "running");
     lgw_db_put("thread", serv->info.name, "running");
-    if (serv->net->sock_up > 0 && serv->net->sock_down > 0) {
-        serv->state.connecting = true;
-    } 
     snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
-    lgw_db_put(family, "network", serv->state.connecting ? "online" : "offline");
+    lgw_db_put(family, "network", "offline");
 
     return 0;
 }
 
 int semtech_stop(serv_s* serv) {
-    char family[64] = {'\0'};
+    char family[128] = {'\0'};
     serv->thread.stop_sig = true;
 	sem_post(&serv->thread.sema);
     pthread_join(serv->thread.t_up, NULL);
@@ -99,7 +96,7 @@ int semtech_stop(serv_s* serv) {
     lgw_db_del("service/lorawan", serv->info.name);
     lgw_db_del("thread", serv->info.name);
     snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
-    lgw_db_del(family, "network");
+    lgw_db_put(family, "network", "offline");
     return 0;
 }
 
@@ -162,10 +159,10 @@ static void semtech_push_up(void* arg) {
         lgw_log(LOG_DEBUG, "DEBUG~ [%s] semtech_push_up fetch %d pachages.\n", serv->info.name, nb_pkt);
 
 		if (GW.gps.gps_enabled == true) {
-			pthread_mutex_lock(&GW.gps.mx_timeref);
+			//pthread_mutex_lock(&GW.gps.mx_timeref);
 			ref_ok = GW.gps.gps_ref_valid;
 			local_ref = GW.gps.time_reference_gps;
-			pthread_mutex_unlock(&GW.gps.mx_timeref);
+			//pthread_mutex_unlock(&GW.gps.mx_timeref);
 		} else {
 			ref_ok = false;
 		}
@@ -689,7 +686,7 @@ static void semtech_pull_down(void* arg) {
     int32_t warning_value = 0;
     uint8_t tx_lut_idx = 0;
 
-    char family[64];  //for sqlite3 database key
+    char family[128];  //for sqlite3 database key
     snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
 
     /* pre-fill the pull request buffer with fixed fields */
@@ -817,13 +814,7 @@ static void semtech_pull_down(void* arg) {
             close(serv->net->sock_up);
             serv->net->sock_down = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
             serv->net->sock_up = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
-            serv->state.connecting = true;
-        }
-
-        if (serv->net->sock_down == -1) {// 如果没有连接跳过下面步骤，运行下一次循环
             serv->state.connecting = false;
-            lgw_db_put(family, "network", "offline");
-            continue;
         }
 
         lgw_db_put(family, "network", serv->state.connecting ? "online" : "offline");
@@ -979,6 +970,7 @@ static void semtech_pull_down(void* arg) {
                         pthread_mutex_lock(&serv->report->mx_report);
                         serv->report->stat_down.meas_dw_ack_rcv += 1;
                         pthread_mutex_unlock(&serv->report->mx_report);
+                        serv->state.connecting = true;
                         lgw_log(LOG_INFO, "INFO~ [%s-down] PULL_ACK received in %i ms\n", serv->info.name, (int)(1000 * difftimespec(recv_time, send_time)));
                     }
                 } else { /* out-of-sync token */
@@ -1033,12 +1025,12 @@ static void semtech_pull_down(void* arg) {
                         continue;
                     }
                     if (GW.gps.gps_enabled == true) {
-                        pthread_mutex_lock(&GW.gps.mx_timeref);
+                        //pthread_mutex_lock(&GW.gps.mx_timeref);
                         if (GW.gps.gps_ref_valid == true) {
                             local_ref = GW.gps.time_reference_gps;
-                            pthread_mutex_unlock(&GW.gps.mx_timeref);
+                            //pthread_mutex_unlock(&GW.gps.mx_timeref);
                         } else {
-                            pthread_mutex_unlock(&GW.gps.mx_timeref);
+                            //pthread_mutex_unlock(&GW.gps.mx_timeref);
                             lgw_log(LOG_WARNING, "WARNING~ [%s-down] no valid GPS time reference yet, impossible to send packet on specific GPS time, TX aborted\n", serv->info.name);
                             json_value_free(root_val);
 

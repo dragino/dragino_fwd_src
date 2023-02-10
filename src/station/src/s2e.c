@@ -996,6 +996,10 @@ static int handle_router_config (s2ctx_t* s2ctx, ujdec_t* D) {
                 resetDC(s2ctx, 50);      // 2%
                 break;
             }
+            case J_AS923: { // non-std obsolete naming
+                region = J_AS923_1;
+                region_s = "AS923-1";
+            }
             case J_AS923JP: { // non-std obsolete naming
                 region = J_AS923_1;
                 region_s = "AS923-1";

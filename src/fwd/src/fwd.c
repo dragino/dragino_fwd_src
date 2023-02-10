@@ -426,13 +426,13 @@ int get_rxpkt(serv_s* serv) {
         if (serv->info.stamp == (serv->info.stamp & rxpkt_entry->stamps))
             continue;
         
-        memset(serv->rxpkt, 0, sizeof(serv->rxpkt));
-        memcpy(serv->rxpkt, rxpkt_entry->rxpkt, sizeof(struct lgw_pkt_rx_s) * rxpkt_entry->nb_pkt);
-        ret = rxpkt_entry->nb_pkt;
         //pthread_mutex_lock(&GW.mx_bind_lock);
         rxpkt_entry->stamps |= serv->info.stamp;
         rxpkt_entry->bind--;
         //pthread_mutex_unlock(&GW.mx_bind_lock);
+        memset(serv->rxpkt, 0, sizeof(serv->rxpkt));
+        memcpy(serv->rxpkt, rxpkt_entry->rxpkt, sizeof(struct lgw_pkt_rx_s) * rxpkt_entry->nb_pkt);
+        ret = rxpkt_entry->nb_pkt;
         break;
     }
     LGW_LIST_UNLOCK(&GW.rxpkts_list);
