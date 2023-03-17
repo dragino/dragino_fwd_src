@@ -17,9 +17,9 @@ prepare() {
     [[ "$1" = "rasp301" ]] && cp -f sx1301hal/inc/loragw_spi.h.rasp sx1301hal/inc/loragw_spi.h
     [[ ! -d build_fwd_sx1301 ]] && cp -rf fwd build_fwd_sx1301
     [[ ! -d build_fwd_sx1302 ]] && cp -rf fwd build_fwd_sx1302
-    [[ -d station ]] && cp -f staion/setup.gmk.arm  station/setup.gmk
-    [[ ! -d build_staion_sx1301 ]] && cp -rf station build_station_sx1301
-    [[ ! -d build_staion_sx1302 ]] && cp -rf station build_station_sx1302
+    [[ -d station ]] && cp -f station/setup.gmk.arm  station/setup.gmk
+    [[ ! -d build_station_sx1301 ]] && cp -rf station build_station_sx1301
+    [[ ! -d build_station_sx1302 ]] && cp -rf station build_station_sx1302
 }
 
 case "$1" in 
