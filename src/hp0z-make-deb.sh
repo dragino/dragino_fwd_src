@@ -15,11 +15,11 @@ VER=$(date -u '+%Y-%m-%d')
 
 prepare() {
     [[ "$1" = "rasp301" ]] && cp -f sx1301hal/inc/loragw_spi.h.rasp sx1301hal/inc/loragw_spi.h
-    [[ "$1" = "hp0c" ]] && cp -f sx1302hal/inc/loragw_i2c.h.rasp sx1302hal/inc/loragw_i2c.h
     [[ ! -d build_fwd_sx1301 ]] && cp -rf fwd build_fwd_sx1301
     [[ ! -d build_fwd_sx1302 ]] && cp -rf fwd build_fwd_sx1302
-    [[ ! -d build_staion_sx1301 ]] && cp -rf station-arm build_station_sx1301
-    [[ ! -d build_staion_sx1302 ]] && cp -rf station-arm build_station_sx1302
+    [[ -d station ]] && cp -f staion/setup.gmk.arm  station/setup.gmk
+    [[ ! -d build_staion_sx1301 ]] && cp -rf station build_station_sx1301
+    [[ ! -d build_staion_sx1302 ]] && cp -rf station build_station_sx1302
 }
 
 case "$1" in 

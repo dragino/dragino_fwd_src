@@ -1,6 +1,0 @@
-tc.uri
-tc-bak.*
-station.log
-station.pid
-spidev*
-*.info

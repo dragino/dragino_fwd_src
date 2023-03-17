@@ -1,5 +1,0 @@
-#!/bin/bash
-echo "v1" > _shome/version.txt
-echo $UPDTEST > _shome/updtest.txt
-rm -f /tmp/update.bin
-echo "update.bin: update completed"

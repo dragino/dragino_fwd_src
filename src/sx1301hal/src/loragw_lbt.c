@@ -76,8 +76,8 @@ void *lgw_lbt_target = NULL; /*! generic pointer to the LBT device */
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
-static bool lbt_enable;
-static bool lbt_isftdi;
+static bool lbt_enable = false;
+static bool lbt_isftdi = false;
 static uint8_t lbt_nb_active_channel;
 static int8_t lbt_rssi_target_dBm;
 static int8_t lbt_rssi_offset_dB;

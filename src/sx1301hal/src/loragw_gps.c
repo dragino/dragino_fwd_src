@@ -699,7 +699,7 @@ int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc, struc
         ref->systime = time(NULL);
         ref->count_us = count_us;
         ref->utc.tv_sec = utc.tv_sec;
-        ref->utc.tv_nsec = utc.tv_nsec;
+        ref->utc.tv_nsec = utc.tv_nsec;  /* not support UBX, utc time instead */
         ref->gps.tv_sec = gps_time.tv_sec;
         ref->gps.tv_nsec = gps_time.tv_nsec;
         ref->xtal_err = slope;

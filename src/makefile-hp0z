@@ -25,7 +25,7 @@ sx1301hal:
 	$(MAKE) all -e -C $@
 
 sx1302hal: 
-	$(MAKE) all -e -C $@
+	$(MAKE) all -e -C $@ I2CCC=1
 
 libmqtt: 
 	$(MAKE) all -e -C $@
@@ -34,16 +34,16 @@ libmbedtls:
 	$(MAKE) all -e -C libmbedtls
 
 fwd_sx1301: sx1301hal libmqtt 
-	$(MAKE) all -e -C build_fwd_sx1301 SX1301MOD=1
+	$(MAKE) all -e -C build_fwd_sx1301 SX1301MOD=1 
 
 fwd_sx1302: sx1302hal libmqtt 
-	$(MAKE) all -e -C build_fwd_sx1302 HP0MOD=1
+	$(MAKE) all -e -C build_fwd_sx1302 HP0MOD=1 
 
 station_sx1302: sx1302hal 
-	$(MAKE) all -e -C build_station_sx1302 HP0MOD=1 SX1302MOD=1
+	$(MAKE) all -e -C build_station_sx1302 HP0MOD=1 SX1302MOD=1 
 
 station_sx1301: sx1301hal 
-	$(MAKE) all -e -C build_station_sx1301 HP0MOD=1 SX1301MOD=1
+	$(MAKE) all -e -C build_station_sx1301 HP0MOD=1 SX1301MOD=1 
 
 clean:
 	$(MAKE) clean -e -C sx1301hal

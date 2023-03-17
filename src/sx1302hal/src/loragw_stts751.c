@@ -154,8 +154,9 @@ int stts751_get_temperature(int i2c_fd, uint8_t i2c_addr, float * temperature) {
 
     /* Check Input Params */
     if (i2c_fd <= 0) {
-        printf("ERROR: invalid I2C file descriptor\n");
-        return LGW_I2C_ERROR;
+        printf("WARNING: Not connect I2C Temperature Device, Return Virtual Temperature!\n");
+        *temperature = 26.9;
+        return LGW_I2C_SUCCESS;
     }
 
     /* Read Temperature LSB */

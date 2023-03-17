@@ -105,6 +105,12 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 /* Version string, used to identify the library version/options once compiled */
 const char lgw_version_string[] = "Release:" CFG_bdate ",  Version:" CFG_version;
 
+#ifndef I2CCC
+static char i2c_device[16] = "/dev/i2c-0";
+#else
+static char i2c_device[16] = "/dev/i2c-1";
+#endif
+
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
@@ -846,8 +852,14 @@ int lgw_debug_setconf(struct lgw_conf_debug_s * conf) {
 
 int lgw_start(void) {
     int i, err;
+    char *pt = NULL;
 
     DEBUG_PRINTF(" --- %s\n", "IN");
+
+    pt = getenv("I2C_DEVICE");
+
+    if (NULL != pt) 
+        strncpy(i2c_device, getenv("I2C_DEVICE"), sizeof(i2c_device));
 
     if (CONTEXT_STARTED == true) {
         DEBUG_MSG("Note: LoRa concentrator already started, restarting it now\n");
@@ -1091,10 +1103,11 @@ int lgw_start(void) {
         /* Find the temperature sensor on the known supported ports */
         for (i = 0; i < (int)(sizeof I2C_PORT_TEMP_SENSOR); i++) {
             ts_addr = I2C_PORT_TEMP_SENSOR[i];
-            err = i2c_linuxdev_open(I2C_DEVICE, ts_addr, &ts_fd);
+            err = i2c_linuxdev_open(i2c_device, ts_addr, &ts_fd);
             if (err != LGW_I2C_SUCCESS) {
-                printf("ERROR: failed to open I2C for temperature sensor on port 0x%02X\n", ts_addr);
-                return LGW_HAL_ERROR;
+                printf("WARNING: failed to open I2C for temperature sensor on port 0x%02X\n", ts_addr);
+                ts_fd = -1;
+                continue;
             }
 
             err = stts751_configure(ts_fd, ts_addr);
@@ -1108,13 +1121,13 @@ int lgw_start(void) {
             }
         }
         if (i == sizeof I2C_PORT_TEMP_SENSOR) {
-            printf("ERROR: no temeprature sensor found.\n");
-            return LGW_HAL_ERROR;
+            printf("WARNING: no temeprature sensor found, use virtual temp data!\n");
+            ts_fd = -1;
         }
 
         /* Configure ADC AD338R for full duplex (CN490 reference design) */
         if (CONTEXT_BOARD.full_duplex == true) {
-            err = i2c_linuxdev_open(I2C_DEVICE, I2C_PORT_DAC_AD5338R, &ad_fd);
+            err = i2c_linuxdev_open(i2c_device, I2C_PORT_DAC_AD5338R, &ad_fd);
             if (err != LGW_I2C_SUCCESS) {
                 printf("ERROR: failed to open I2C for ad5338r\n");
                 return LGW_HAL_ERROR;
@@ -1176,7 +1189,7 @@ int lgw_start(void) {
     /* set hal state */
     CONTEXT_STARTED = true;
 
-    DEBUG_PRINTF(" --- %s\n", "OUT");
+    DEBUG_PRINTF("set hal state: %s\n", CONTEXT_STARTED ? "true" : "false");
 
     return LGW_HAL_SUCCESS;
 }

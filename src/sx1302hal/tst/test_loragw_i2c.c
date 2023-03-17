@@ -67,6 +67,8 @@ static int quit_sig = 0; /* 1 -> application terminates without shutting down th
 static int     ts_fd = -1;
 static uint8_t ts_addr = 0xFF;
 
+static char i2c_device[16] = "/dev/i2c-0";
+
 /* -------------------------------------------------------------------------- */
 /* --- SUBFUNCTIONS DECLARATION --------------------------------------------- */
 
@@ -84,6 +86,11 @@ int main(int argc, char ** argv)
     uint8_t high_byte, low_byte;
     int8_t h;
     float temperature;
+    char *pt = NULL;
+
+    pt = getenv("I2C_DEVICE");
+    if (NULL != pt) 
+        strncpy(i2c_device, getenv("I2C_DEVICE"), sizeof(i2c_device));
 
     /* Parse command line options */
     while ((i = getopt(argc, argv, "hd:")) != -1) {
@@ -118,7 +125,7 @@ int main(int argc, char ** argv)
 
     for (i = 0; i < (int)(sizeof I2C_PORT_TEMP_SENSOR); i++) {
         ts_addr = I2C_PORT_TEMP_SENSOR[i];
-        err = i2c_linuxdev_open(I2C_DEVICE, ts_addr, &ts_fd);
+        err = i2c_linuxdev_open(i2c_device, ts_addr, &ts_fd);
         if (err != LGW_I2C_SUCCESS) {
             printf("ERROR: failed to open I2C for temperature sensor on port 0x%02X\n", ts_addr);
             return EXIT_FAILURE;
@@ -173,7 +180,7 @@ static void usage(void) {
     printf("~~~ Available options ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     printf(" -h            print this help\n");
     printf(" -d <path>     use Linux I2C device driver\n");
-    printf("               => default path: " I2C_DEVICE "\n");
+    printf("               => default path: %s \n", i2c_device);
 }
 
 /* --- EOF ------------------------------------------------------------------ */

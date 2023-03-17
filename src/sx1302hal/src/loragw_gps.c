@@ -459,7 +459,7 @@ enum gps_msg lgw_parse_ubx(const char *serial_buff, size_t buff_size, size_t *ms
                         gps_week |= (uint8_t)serial_buff[15] << 8; /* GPS week number */
 
                         gps_time_ok = true;
-#if 0
+#ifdef DEBUG_GPS
                         /* For debug */
                         {
                             short ubx_gps_hou = 0; /* hours (0-23) */

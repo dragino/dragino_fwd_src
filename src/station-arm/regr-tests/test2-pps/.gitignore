@@ -1,6 +1,0 @@
-*.fifo
-*.info
-tc-bak.*
-spidev
-station.lastpos
-station.pid

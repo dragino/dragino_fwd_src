@@ -167,3 +167,23 @@ usb module can only make 60ms scan loop.
 
 ## 2022/12/30  fwd-2.7.9
 1.station: timeline is not correct of downlink, because OS is not RT system, remove time conditon when EU8686.
+
+## 2023/01/17  fwd-2.7.9
+1. fix network state , fwd can pull ack set state to online.
+
+## 2023/02/01  fwd-2.8.0
+1. station add AS_923 Handle
+
+## 2023/02/28  fwd-2.8.1
+1. station add EU865 Handle
+
+## 2023/03/03  fwd-2.8.2
+1. for sx1301 station, disable lbt by default 
+
+## 2023/03/07  fwd-2.8.3
+1. set I2C_DEVICE env for i2c device, if can't connet i2c device , ignore and use virtual data continue.
+
+## 2023/03/15  fwd-2.8.4
+1. gpst fix, (Quect L76)not support ubx, disable gps time.
+
+

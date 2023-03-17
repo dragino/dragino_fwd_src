@@ -383,7 +383,7 @@ static int setup_LBT (struct sx130xconf* sx130xconf, u4_t cca_region) {
     }
     for( int i=0; i<sx130xconf->lbt.nb_channel; i++ )
         sx130xconf->lbt.channels[i].scan_time_us = scantime_us;
-    sx130xconf->lbt.enable = 1;
+    sx130xconf->lbt.enable = 0;
     int e = lgw_lbt_setconf(sx130xconf->lbt);
     if( e != LGW_HAL_SUCCESS ) {
         LOG(MOD_RAL|ERROR, "lgw_lbt_setconf failed: %s", sx130xconf->device);

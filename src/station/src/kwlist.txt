@@ -52,6 +52,7 @@ hwspec
 if
 IL915
 infos_uri
+IN865
 JoinEui
 JoinEUI
 KR920

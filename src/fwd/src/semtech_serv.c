@@ -283,19 +283,20 @@ static void semtech_push_up(void* arg) {
                     }
                 }
                 /* convert packet timestamp to GPS absolute time */
+                /*
                 j = lgw_cnt2gps(local_ref, p->count_us, &pkt_gps_time);
                 if (j == LGW_GPS_SUCCESS) {
                     pkt_gps_time_ms = pkt_gps_time.tv_sec * 1E3 + pkt_gps_time.tv_nsec / 1E6;
-                    j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"tmms\":%" PRIu64 "", pkt_gps_time_ms); /* GPS time in milliseconds since 06.Jan.1980 */
+                    j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"tmms\":%" PRIu64 "", pkt_gps_time_ms); 
                     if (j > 0) {
                         buff_index += j;
                     } else {
                         lgw_log(LOG_ERROR, "ERROR~ [%s-up] snprintf failed line %u\n", serv->info.name, (__LINE__ - 4));
-                        buff_index = 21; /* skip that packet */
+                        buff_index = 21; 
                         continue;
-                        //pthread_exit(NULL);
                     }
                 }
+                */
             } else { 
                 clock_gettime(CLOCK_REALTIME, &pkt_utc_time);
                 x = gmtime(&(pkt_utc_time.tv_sec)); /* split the UNIX timestamp to its calendar components */
