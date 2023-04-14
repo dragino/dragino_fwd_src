@@ -625,7 +625,7 @@ static void semtech_pull_down(void* arg) {
     int i; /* loop variables */
     int retry;
 
-    int pull_send = 0, pull_ack = 0;  /* for reconnecting */
+    uint32_t pull_send = 0, pull_ack = 0;  /* for reconnecting */
 
     /* configuration and metadata for an outbound packet */
     struct lgw_pkt_tx_s txpkt;
@@ -808,7 +808,7 @@ static void semtech_pull_down(void* arg) {
         buff_req[1] = token_h;
         buff_req[2] = token_l;
 
-        if (pull_ack < labs(pull_send * 0.1)) {    // this function will keep the socket alive 
+        if (pull_ack < pull_send) {    // this function will keep the socket alive 
             pull_send = 0;
             pull_ack = 0;
             close(serv->net->sock_down);   //udp socket no need conneting, direct close
@@ -832,7 +832,7 @@ static void semtech_pull_down(void* arg) {
         /* listen to packets and process them until a new PULL request must be sent */
         clock_gettime(CLOCK_MONOTONIC, &send_time);
         recv_time = send_time;
-        while ((int)difftimespec(recv_time, send_time) < DEFAULT_KEEPALIVE) {
+        while (((int)difftimespec(recv_time, send_time) < DEFAULT_KEEPALIVE) && !serv->thread.stop_sig) {
 
             /* try to receive a datagram */
             msg_len = recv(serv->net->sock_down, (void *)buff_down, sizeof buff_down, 0);
@@ -1340,6 +1340,9 @@ static void semtech_pull_down(void* arg) {
             if ( LORAMAC_PARSER_SUCCESS == LoRaMacParserData(&macmsg) )
                 decode_mac_pkt_down(&macmsg, &txpkt);
         }
+
+        if ( (i = serv->net->pull_interval - (int)difftimespec(recv_time, send_time)) > 0)
+            wait_ms(1000 * i);
     }
     lgw_log(LOG_INFO, "\nINFO~ [%s-down] End of downstream thread\n", serv->info.name);
 }

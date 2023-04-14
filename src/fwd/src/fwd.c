@@ -573,10 +573,12 @@ int main(int argc, char *argv[]) {
 
     /* starting ghost service */
 	if (GW.cfg.ghoststream_enabled == true) {
-        ghost_start(GW.cfg.ghost_host, GW.cfg.ghost_port, GW.gps.reference_coord, GW.info.gateway_id);
-        lgw_register_atexit(ghost_stop);
-        lgw_db_put("loraradio", "ghoststream", "running");
-        lgw_log(LOG_INFO, "INFO~ [main] Ghost listener started, ghost packets can now be received.\n");
+        if (ghost_start(GW.cfg.ghost_host, GW.cfg.ghost_port, GW.info.gateway_id)) {
+            lgw_register_atexit(ghost_stop);
+            lgw_db_put("loraradio", "ghoststream", "running");
+            lgw_log(LOG_INFO, "INFO~ [main] Ghost listener started, ghost packets can now be received.\n");
+        } else
+            lgw_log(LOG_INFO, "INFO~ [main] Can't start Ghost listener!\n");
     }
 
 	/* starting the concentrator */
@@ -595,8 +597,8 @@ int main(int argc, char *argv[]) {
 			lgw_log(LOG_ERROR, "ERROR~ [main] failed to start the concentrator\n");
             if (system("/usr/bin/reset_lgw.sh stop") != 0) {
                 lgw_log(LOG_ERROR, "ERROR~ [main] failed to stop SX130X, run script reset_lgw.sh stop!\n");
-            exit(EXIT_FAILURE);
-        } 
+                exit(EXIT_FAILURE);
+            } 
 			exit(EXIT_FAILURE);
 		}
         if (!strncasecmp(GW.hal.board, "sx1302", 6)) {   
@@ -739,10 +741,6 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-	//if (GW.cfg.ghoststream_enabled == true) {
-    //    ghost_stop();
-    //}
-
     if (GW.lbt.lbt_tty_enabled) {
 		pthread_cancel(thrid_lbt_scan);	    /* don't wait for timer sync thread */
     }
@@ -750,8 +748,6 @@ int main(int argc, char *argv[]) {
     stop_clean_service();
 
     lgw_run_atexits(1);
-
-    //thread_rxpkt_recycle();
 
 	/* if an exit signal was received, try to quit properly */
 	if (exit_sig || quit_sig) {
@@ -841,10 +837,6 @@ static void thread_up(void) {
 	            lgw_log(LOG_DEBUG, "DEBUG~ [%s-up] post sem to all service, (%s)\n", serv_entry->info.name, strerror(errno));
         }
 
-        //service_handle_rxpkt(rxpkt_entry);
-        //lgw_free(rxpkt_entry);
-
-        //thread_rxpkt_recycle();
 	}
 
 	lgw_log(LOG_INFO, "INFO~ [main-up] End of upstream thread\n");
@@ -873,7 +865,7 @@ static void thread_rxpkt_recycle(void) {
         }
 
         if (GW.rxpkts_list.size > DEFAULT_RXPKTS_LIST_SIZE) {   
-	        lgw_log(LOG_DEBUG, "\nDEBUG~ [Recycle-service] running packages recycle thread, total(=%d)\n", GW.rxpkts_list.size);
+	        lgw_log(LOG_DEBUG, "DEBUG~ [Recycle-service] running packages recycle thread, total(=%d)\n", GW.rxpkts_list.size);
 
             LGW_LIST_LOCK(&GW.rxpkts_list);
             LGW_LIST_TRAVERSE_SAFE_BEGIN(&GW.rxpkts_list, rxpkt_entry, list) {

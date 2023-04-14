@@ -186,4 +186,9 @@ usb module can only make 60ms scan loop.
 ## 2023/03/15  fwd-2.8.4
 1. gpst fix, (Quect L76)not support ubx, disable gps time.
 
+## 2023/03/21  fwd-2.8.5
+1. ghost thread which can receive package from udp port
+
+## 2023/03/21  fwd-2.8.6
+1. option set pull_interval on semtech protol pull
 

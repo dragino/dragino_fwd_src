@@ -1,11 +1,27 @@
 /*
- *  Extension of Semtech Semtech-Cycleo Packet Forwarder.
- *  (C) 2015 Beta Research BV
+ *  ____  ____      _    ____ ___ _   _  ___  
+ *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
+ *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
+ *  | |_| |  _ <  / ___ \ |_| || || |\  | |_| |
+ *  |____/|_| \_\/_/   \_\____|___|_| \_|\___/ 
  *
- *  Description: Virtualization of nodes.
+ * Dragino_gw_fwd -- An opensource lora gateway forward 
  *
- *  License: Revised BSD License, see LICENSE.TXT file include in the project
- *  Maintainer: Ruud Vlaming
+ * See http://www.dragino.com for more information about
+ * the lora gateway project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ *
+ * Maintainer: skerlan
+ *
+ */
+
+/*!
+ * \file
+ * \brief lora packages simulation
  */
 
 /* fix an issue between POSIX and C99 */
@@ -36,44 +52,27 @@
 #include <pthread.h>
 #include "fwd.h"
 #include "ghost.h"
-#include "endianext.h"
-
-//#include "loragw_gps.h"
+#include "loragw_hal.h"
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
-#define PROTOCOL_VERSION    2
-#define GHOST_DATA         11
-
-volatile bool ghost_run = false;	/* false -> ghost thread terminates cleanly */
-
-struct timeval ghost_timeout = { 0, (200 * 1000) };	/* non critical for throughput */
+static volatile bool ghost_run = false;	/* false -> ghost thread terminates cleanly */
 
 static pthread_mutex_t cb_ghost = PTHREAD_MUTEX_INITIALIZER;	/* control access to the ghoststream measurements */
-
-//!static int rxpktSize = sizeof(struct lgw_pkt_rx_s);
-//!static int txpktSize = sizeof(struct lgw_pkt_tx_s);
-
-static uint8_t buffRX[GHST_RX_BUFFSIZE * GHST_NM_RCV];	/* circular buffer for receiving packets */
-
-//!static uint8_t buffTX[GHST_TX_BUFFSIZE*GHST_NM_RCV]; /* circular buffer for sending packets */
-
-static uint8_t ghst_end;		/* end of circular packet buffer  */
-static uint8_t ghst_bgn;		/* begin of circular packet buffer */
 
 static int sock_ghost;			/* socket for downstream traffic */
 static char gateway_id[16] = "";	/* string form of gateway mac address */
 
+static struct lgw_pkt_rx_s rxpkt[NB_PKT];
+static uint8_t cnt_ghost = 0;
+
 /* ghost thread */
 static pthread_t thrid_ghost;
 
-/* Reference coordinates, for broadcasting (beacon) */
-static struct coord_s reference_coord;
-
 /* for debugging purposes. */
-static void printBuffer(uint8_t * b, uint8_t len) __attribute__ ((unused));
-static void printBuffer(uint8_t * b, uint8_t len) {
+static void print_buf(uint8_t * b, uint8_t len) __attribute__ ((unused));
+static void print_buf(uint8_t * b, uint8_t len) {
 	int i;
 	for (i = 0; i < len; i++) {
 		printf("%i,", b[i]);
@@ -81,8 +80,8 @@ static void printBuffer(uint8_t * b, uint8_t len) {
 }
 
 /* for debugging purposes. */
-static void printRX(struct lgw_pkt_rx_s *p) __attribute__ ((unused));
-static void printRX(struct lgw_pkt_rx_s *p) {
+static void print_rx(struct lgw_pkt_rx_s *p) __attribute__ ((unused));
+static void print_rx(struct lgw_pkt_rx_s *p) {
 	printf("  p->freq_hz    = %i\n"
 		   "  p->if_chain   = %i\n"
 		   "  p->status     = %i\n"
@@ -105,49 +104,25 @@ static void printRX(struct lgw_pkt_rx_s *p) {
 		   p->crc, p->size, p->payload);
 }
 
-/* to bitwise convert an unsigned integer to a float */
-typedef union {
-	uint32_t u;
-	float f;
-} mix;
 
-/* Helper functions for architecture independent conversion (BE!) of data packet to structure lgw_pkt_rx_s */
-//TODO: This is hard conversion from BE to LE, but we could run on a BE chip or in a BE mode (Arm supports both!)
-static uint32_t u32(uint8_t * p, uint8_t i) {
-	return (uint32_t) (p[i + 3]) + ((uint32_t) (p[i + 2]) << 8) +
-		((uint32_t) (p[i + 1]) << 16) + ((uint32_t) (p[i]) << 24);
-}
-static uint16_t u16(uint8_t * p, uint8_t i) {
-	return (uint16_t) p[i + 1] + ((uint16_t) p[i] << 8);
-}
-static uint8_t u8(uint8_t * p, uint8_t i) {
-	return p[i];
-}
-static float eflt(uint8_t * p, uint8_t i) {
-	mix uf;
-
-	uf.u = u32(p, i);
-	return uf.f;
-}
-
-/* Method to fill lgw_pkt_rx_s with data received by the ghost node server. */
-static void readRX(struct lgw_pkt_rx_s *p, uint8_t * b) {
-	p->freq_hz = u32(b, 0);
-	p->if_chain = u8(b, 4);
-	p->status = u8(b, 5);
-	p->count_us = u32(b, 6);
-	p->rf_chain = u8(b, 10);
-	p->modulation = u8(b, 11);
-	p->bandwidth = u8(b, 12);
-	p->datarate = u32(b, 13);
-	p->coderate = u8(b, 17);
-	p->rssis = eflt(b, 18);
-	p->snr = eflt(b, 22);
-	p->snr_min = eflt(b, 26);
-	p->snr_max = eflt(b, 30);
-	p->crc = u16(b, 34);
-	p->size = u16(b, 36);
-	memcpy((p->payload), &b[38], p->size);
+/* Method to fill lgw_pkt_rx_s with data */
+static void fill_rx(struct lgw_pkt_rx_s *p, uint8_t *payload, uint32_t us) {
+	p->freq_hz = (uint32_t) 868320000;
+	p->if_chain = 2;
+	p->status = STAT_CRC_OK;
+	p->count_us = us;
+	p->rf_chain = 1;
+	p->modulation = MOD_LORA;
+	p->bandwidth = BW_125KHZ;
+	p->datarate = DR_LORA_SF10;
+	p->coderate = CR_LORA_4_5;
+	p->rssis = -112;
+	p->snr = 22;
+	p->snr_min = 11;
+	p->snr_max = 43;
+	p->crc = 2234;
+	p->size = 48;
+	memcpy((p->payload), payload, p->size);
 }
 
 static void thread_ghost(void);
@@ -155,14 +130,14 @@ static void thread_ghost(void);
 /* -------------------------------------------------------------------------- */
 /* --- THREAD: RECEIVING PACKETS FROM GHOST NODES --------------------------- */
 
-void ghost_start(const char *ghost_addr, const char *ghost_port, const struct coord_s refcoor, const char *gwid) {
+bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwid) {
 	/* You cannot start a running ghost listener. */
 	if (ghost_run)
-		return;
+		return true;
 
 	int i;						/* loop variable and temporary variable for return value */
+
 	/* copy the static coordinates (so if the gps changes, this is not reflected!) */
-	reference_coord = refcoor;
 	strncpy(gateway_id, gwid, sizeof gateway_id);
 
 	struct addrinfo addresses;
@@ -172,14 +147,14 @@ void ghost_start(const char *ghost_addr, const char *ghost_port, const struct co
 	char port_name[64];
 
 	memset(&addresses, 0, sizeof addresses);
-	addresses.ai_family = AF_UNSPEC;	/* should handle IP v4 or v6 automatically */
+	addresses.ai_family = AF_INET;	
 	addresses.ai_socktype = SOCK_DGRAM;
 
 	/* Get the credentials for this server. */
 	i = getaddrinfo(ghost_addr, ghost_port, &addresses, &result);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR: [up] getaddrinfo on address %s (PORT %s) returned %s\n", ghost_addr, ghost_port, gai_strerror(i));
-		exit(EXIT_FAILURE);
+		lgw_log(LOG_ERROR, "ERROR~ [ghost] getaddrinfo on address %s (PORT %s) returned %s\n", ghost_addr, ghost_port, gai_strerror(i));
+        return false;
 	}
 
 	/* try to open socket for ghost listener */
@@ -187,48 +162,46 @@ void ghost_start(const char *ghost_addr, const char *ghost_port, const struct co
 		sock_ghost = socket(q->ai_family, q->ai_socktype, q->ai_protocol);
 		if (sock_ghost == -1)
 			continue;			/* try next field */
-		else
-			break;
+		else {
+            i = bind(sock_ghost, q->ai_addr, q->ai_addrlen);
+			if( i == -1 ) {
+			    shutdown(sock_ghost, SHUT_RDWR);
+				continue; /* bind failed, try next field */
+			} else
+			    break;
+        }
 	}
 
 	/* See if the connection was a success, if not, this is a permanent failure */
 	if (q == NULL) {
-		lgw_log(LOG_ERROR, "ERROR: [down] failed to open socket to any of server %s addresses (port %s)\n", ghost_addr, ghost_port);
+		lgw_log(LOG_ERROR, "ERROR~ [ghost] failed to open socket to any of server %s addresses (port %s)\n", ghost_addr, ghost_port);
 		i = 1;
 		for (q = result; q != NULL; q = q->ai_next) {
 			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
-			lgw_log(LOG_INFO, "INFO: [down] result %i host:%s service:%s\n", i, host_name, port_name);
+			lgw_log(LOG_INFO, "INFO~ [ghost] result %i host:%s service:%s\n", i, host_name, port_name);
 			++i;
 		}
-		exit(EXIT_FAILURE);
-	}
-
-	/* connect so we can send/receive packet with the server only */
-	i = connect(sock_ghost, q->ai_addr, q->ai_addrlen);
-	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR: [down] connect returned %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
+        return false;
 	}
 
 	freeaddrinfo(result);
 
-	/* set the circular buffer pointers to the beginning */
-	ghst_bgn = 0;
-	ghst_end = 0;
-
 	/* spawn thread to manage ghost connection */
-	ghost_run = true;
 	i = lgw_pthread_create(&thrid_ghost, NULL, (void *(*)(void *))thread_ghost, NULL);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR: [main] impossible to create ghost thread\n");
-		exit(EXIT_FAILURE);
+		lgw_log(LOG_ERROR, "ERROR~ [ghost] impossible to create ghost thread\n");
+        return false;
 	}
 
+	ghost_run = true;
+
+    return true;
 	/* We are done here, ghost thread is initialized and should be running by now. */
 
 }
 
 void ghost_stop(void) {
+    cnt_ghost = 0;
 	ghost_run = false;			/* terminate the loop. */
 	pthread_cancel(thrid_ghost);	/* don't wait for downstream thread (is this okay??) */
 	shutdown(sock_ghost, SHUT_RDWR);	/* close the socket. */
@@ -236,138 +209,81 @@ void ghost_stop(void) {
 
 /* Call this to pull data from the receive buffer for ghost nodes.. */
 int ghost_get(int max_pkt, struct lgw_pkt_rx_s *pkt_data) {	/* Calculate the number of available packets */
+    int i = cnt_ghost;
+    if (cnt_ghost == 0) 
+        return 0;
+
 	pthread_mutex_lock(&cb_ghost);
-	uint8_t avail = (ghst_bgn - ghst_end + GHST_NM_RCV) % GHST_NM_RCV;
+
+    memcpy(pkt_data, &rxpkt, sizeof(struct lgw_pkt_rx_s) * cnt_ghost);
+
+    cnt_ghost = 0;  /* reset */
 
 	pthread_mutex_unlock(&cb_ghost);
 
-	/* Calculate the number of packets that we may or can copy */
-	uint8_t get_pkt = (avail < max_pkt) ? avail : max_pkt;
-
-	/* Do the actual copying, take into account that the read buffer is circular. */
-	int i;
-
-	for (i = 0; i < get_pkt; i++) {
-		int ind = (ghst_end + i) % GHST_NM_RCV;
-
-		readRX(&pkt_data[i], (buffRX + ind * GHST_RX_BUFFSIZE));
+	if (i > 0) {
+		lgw_log(LOG_INFO, "INFO~ [ghost] copied %i packets from ghost \n", i);
 	}
 
-	/* Shift the end index of the read buffer to the new position. */
-	pthread_mutex_lock(&cb_ghost);
-	ghst_end = (ghst_end + get_pkt) % GHST_NM_RCV;
-	pthread_mutex_unlock(&cb_ghost);
-
-	if (get_pkt > 0) {
-		lgw_log(LOG_INFO, "INFO: copied %i packets from ghost, ghst_end  = %i \n", get_pkt, ghst_end);
-		// To get more info enable this
-		//for (i=0; i<get_pkt; i++)
-		//{ printf("packet %i\n",i);
-		//  printRX(&pkt_data[i]); }
-	}
-
-	/* return the number of packets that where copied. */
-	return get_pkt;
-}
-
-/* Call this to push data from the server to the receiving ghost node.
- * Data is send immediately. */
-int ghost_put() {				//TODO: Implement this method.
-	return 0;
+	return i;
 }
 
 static void thread_ghost(void) {
 	int i;						/* loop variable */
 
-	/* local timekeeping variables */
-	struct timespec send_time;	/* time of the pull request */
-	struct timespec recv_time;	/* time of return from recv socket call */
+    struct timeval current_unix_time;
+    uint32_t rec_us;
 
 	/* data buffers */
-	uint8_t buff_down[GHST_MIN_PACKETSIZE + GHST_RX_BUFFSIZE];	/* buffer to receive downstream packets */
-	uint8_t buff_req[GHST_REQ_BUFFSIZE];	/* buffer to compose pull requests */
-	int msg_len;
+    uint8_t databuf_rec[GHST_RX_BUFFSIZE];
 
-	lgw_log(LOG_INFO, "INFO~ Ghost thread started...\n");
-	/* set downstream socket RX timeout */
-	i = setsockopt(sock_ghost, SOL_SOCKET, SO_RCVTIMEO, (void *)&ghost_timeout, sizeof ghost_timeout);
-	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR: [ghost] setsockopt returned %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
+    int byte_nb;
 
-	/* pre-fill the pull request buffer with fixed fields, check if there is enough space. */
-	if (sizeof(buff_req) < 4 + sizeof gateway_id + 2 * sizeof(double)) {
-		lgw_log(LOG_ERROR, "INTERNAL ERROR: [ghost] BUFFER TO SMALL.\n");
-		exit(EXIT_FAILURE);
-	}
-	memset(buff_req, 0, sizeof buff_req);
+    struct sockaddr_storage dist_addr;
+    socklen_t addr_len = sizeof dist_addr;
 
-	/* Add identification part */
-	buff_req[0] = PROTOCOL_VERSION;
-	buff_req[1] = 0;			// reserved for future use
-	buff_req[2] = 0;			// reserved for future use
-	buff_req[3] = GHOST_DATA;
+	lgw_log(LOG_INFO, "INFO~ [ghost] Ghost thread started...\n");
 
-	/* Add the gateway id to the request */
-	memcpy(&buff_req[4], &gateway_id, sizeof gateway_id);
+	while (ghost_run) {			
 
-	/* Add the coordinates to the buffer */
-	tobecpy(&buff_req[4 + sizeof(gateway_id)], &reference_coord.lon, sizeof(double));
-	tobecpy(&buff_req[4 + sizeof(gateway_id) + sizeof(double)], &reference_coord.lat, sizeof(double));
+        memset( databuf_rec, 0, sizeof(databuf_rec) );
+        byte_nb = recvfrom( sock_ghost, databuf_rec, sizeof(databuf_rec), 0, (struct sockaddr *)&dist_addr, &addr_len );
 
-	/* aux variable for data copy */
-	int next;
-	bool full;
-
-	while (ghost_run) {			/* send PULL request and record time */
-		// TODO zend later hier de data voor de nodes, nu alleen een pullreq.
-		send(sock_ghost, (void *)buff_req, sizeof buff_req, 0);
-		clock_gettime(CLOCK_MONOTONIC, &send_time);
-		//!req_ack = false;
-		//lgw_log(LOG_ERROR, "DEBUG: GHOST LOOP\n");
-		/* listen to packets and process them until a new PULL request must be sent */
-		recv_time = send_time;
-		while ((int)difftimespec(recv_time, send_time) < NODE_CALL_SECS) {	/* try to receive a datagram */
-			msg_len = recv(sock_ghost, (void *)buff_down, (sizeof buff_down) - 1, 0);
-			clock_gettime(CLOCK_MONOTONIC, &recv_time);
-
-			/* The protocol requires renewal of the subscription on regular basis. So we do
-			 * not reset the wait time force a new pull request every NODE_CALL_SECS.
-			 * If we are here because of a timeout, try again.*/
-			if (msg_len < 0) {
-				continue;
-			}
-
-			/* if the datagram does not respect protocol, just ignore it */
-			if ((msg_len < 4 + GHST_MIN_PACKETSIZE)
-				|| (msg_len > 4 + GHST_RX_BUFFSIZE)
-				|| (buff_down[0] != PROTOCOL_VERSION)
-				|| ((buff_down[3] != GHOST_DATA))) {
-				lgw_log(LOG_WARNING, "WARNING: [ghost] ignoring invalid packet len=%d, protocol_version=%d, id=%d\n", msg_len, buff_down[0], buff_down[3]);
-				continue;
-			}
-
-			/* the datagram is a GHOST_DATA */
-			buff_down[msg_len] = 0;	/* add string terminator, just to be safe */
-
-			/* Determine the next pointer where data can be written and see if the circular buffer is full */
-			next = (ghst_bgn + 1) % GHST_NM_RCV;
-			pthread_mutex_lock(&cb_ghost);
-			full = next == ghst_end;
-			pthread_mutex_unlock(&cb_ghost);
-
-			/* make a copy to the data received to the circular buffer, and shift the write index. */
-			if (full) {
-				lgw_log(LOG_WARNING, "WARNING: [ghost] buffer is full, dropping packet)\n");
-			} else {
-				memcpy((void *)(buffRX + ghst_bgn * GHST_RX_BUFFSIZE), buff_down + 4, msg_len - 3);
-				pthread_mutex_lock(&cb_ghost);
-				ghst_bgn = next;
-				pthread_mutex_unlock(&cb_ghost);
-				lgw_log(LOG_INFO, "RECEIVED, [ghost] ghst_bgn = %i \n", ghst_bgn);
-            }
+        if( byte_nb == -1 )
+        {
+            lgw_log( LOG_ERROR, "ERROR~ [ghost] recvfrom returned %s \n", strerror( errno ) );
+            continue;
         }
+
+		pthread_mutex_lock(&cb_ghost);
+
+		/* make a copy to the data received to the circular buffer, and shift the write index. */
+		if (++cnt_ghost > NB_PKT) {
+			lgw_log(LOG_WARNING, "WARNING~ [ghost] buffer is full, dropping packet)\n");
+		} else {
+            gettimeofday(&current_unix_time, NULL);
+            rec_us = current_unix_time.tv_sec + current_unix_time.tv_usec;
+            fill_rx(&rxpkt[cnt_ghost - 1], databuf_rec, rec_us);
+			lgw_log(LOG_INFO, "INFO~ [ghost] RECEIVED ghst_index = %i \n", cnt_ghost);
+        }
+
+		pthread_mutex_unlock(&cb_ghost);
+
+        /* Display info about the sender */
+        /*
+        i = getnameinfo( (struct sockaddr *)&dist_addr, addr_len, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST );
+
+        if( i == -1 )
+        {
+            lgw_log( LOG_ERROR, "ERROR~ [ghost] getnameinfo returned %s \n", gai_strerror( i ) );
+            continue;
+        }
+        
+        lgw_log( LOG_INFO, "INFO~ [ghost] -> pkt in , host %s (port %s), %i bytes \n", host_name, port_name, byte_nb );
+        */
+
+        
     }
-	lgw_log(LOG_INFO, "INFO~ End of ghost thread\n");
+
+	lgw_log(LOG_INFO, "INFO~ [ghost] End of ghost thread\n");
 }

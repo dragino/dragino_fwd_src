@@ -470,7 +470,7 @@ enum gps_msg lgw_parse_ubx(const char *serial_buff, size_t buff_size, size_t *ms
                             ubx_gps_sec = (gps_iTOW / 1000) % 60;
                             ubx_gps_min = (gps_iTOW / 1000 / 60) % 60;
                             ubx_gps_hou = (gps_iTOW / 1000 / 60 / 60) % 24;
-                            printf("  GPS time = %02d:%02d:%02d\n", ubx_gps_hou, ubx_gps_min, ubx_gps_sec);
+                            DEBUG_MSG("INFO~ GPS time = %02d:%02d:%02d\n", ubx_gps_hou, ubx_gps_min, ubx_gps_sec);
                         }
 #endif
                     } else { /* valid */

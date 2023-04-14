@@ -1179,34 +1179,35 @@ static int parse_gateway_configuration(const char* conf_file) {
     /* gateway unique identifier (aka MAC address) (optional) */
     str = json_object_get_string(conf_obj, "gateway_ID");
     if (str != NULL) {
+        strncpy(GW.info.gateway_id, str, sizeof(GW.info.gateway_id));
         sscanf(str, "%llx", &ull);
         GW.info.lgwm = ull;
         GW.info.net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (ull>>32)));
         GW.info.net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  ull  ));
-        lgw_log(LOG_INFO, "INFO~ [LoadCFG] gateway MAC address is configured to %016llX\n", ull);
+        lgw_log(LOG_INFO, "INFO~ [LoadCFG] gateway MAC address is configured to %s\n", GW.info.gateway_id);
     }
 
-    val = json_object_get_value(conf_obj, "ghoststream_enabled"); /* fetch value (if possible) */
+    val = json_object_get_value(conf_obj, "ghoststream_enable"); /* fetch value (if possible) */
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.ghoststream_enabled = (bool)json_value_get_boolean(val);
         if (GW.cfg.ghoststream_enabled == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] ghoststream_enabled is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] ghoststream_enabled is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] ghoststream_enabled is disable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] ghoststream_enabled is disabled\n");
         }
     } 
 
-    val = json_object_get_value(conf_obj, "radiostream_enabled"); /* fetch value (if possible) */
+    val = json_object_get_value(conf_obj, "radiostream_enable"); /* fetch value (if possible) */
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.radiostream_enabled = (bool)json_value_get_boolean(val);
         if (GW.cfg.radiostream_enabled == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] radiostream_enable is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] radiostream_enable is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] radiostream_enable is disable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] radiostream_enable is disabled\n");
         }
     } 
 
-    val = json_object_get_value(conf_obj, "wd_enabled"); /* fetch value (if possible) */
+    val = json_object_get_value(conf_obj, "wd_enable"); /* fetch value (if possible) */
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.wd_enabled = (bool)json_value_get_boolean(val);
         if (GW.cfg.wd_enabled == true) {
@@ -1216,24 +1217,24 @@ static int parse_gateway_configuration(const char* conf_file) {
         }
     } 
 
-    val = json_object_get_value(conf_obj, "td_enabled"); /* fetch value (if possible) */
+    val = json_object_get_value(conf_obj, "td_enable"); /* fetch value (if possible) */
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.td_enabled = (bool)json_value_get_boolean(val);
         if (GW.cfg.td_enabled == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] td_enable is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] td_enable is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] td_enable is disable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] td_enable is disabled\n");
         }
     } else
-        lgw_log(LOG_INFO, "INFO~ [LoadCFG] td_enable is disable\n");
+        lgw_log(LOG_INFO, "INFO~ [LoadCFG] td_enable is disabled\n");
 
-    val = json_object_get_value(conf_obj, "logger_enabled"); /* fetch value (if possible) */
+    val = json_object_get_value(conf_obj, "logger_enable"); /* fetch value (if possible) */
     if (json_value_get_type(val) == JSONBoolean) {
         GW.log.logger_enabled = (bool)json_value_get_boolean(val);
         if (GW.log.logger_enabled == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] logger_enabled is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] logger_enabled is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] logger_enabled is disenable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] logger_enabled is disenabled\n");
         }
     } 
 
@@ -1241,20 +1242,20 @@ static int parse_gateway_configuration(const char* conf_file) {
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.mac_decode = (bool)json_value_get_boolean(val);
         if (GW.cfg.mac_decode == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac_decode is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac_decode is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac_decode is disable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac_decode is disabled\n");
         }
     } else 
-        lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac_decode is disable\n");
+        lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac_decode is disabled\n");
 
     val = json_object_get_value(conf_obj, "mac2db"); /* fetch value (if possible) */
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.mac2db = (bool)json_value_get_boolean(val);
         if (GW.cfg.mac2db == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2db is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2db is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2db is disable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2db is disabled\n");
         }
     } 
     
@@ -1262,9 +1263,9 @@ static int parse_gateway_configuration(const char* conf_file) {
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.mac2file = (bool)json_value_get_boolean(val);
         if (GW.cfg.mac2file == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2file is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2file is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2file is disable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] mac2file is disabled\n");
         }
     } 
 
@@ -1272,9 +1273,9 @@ static int parse_gateway_configuration(const char* conf_file) {
     if (json_value_get_type(val) == JSONBoolean) {
         GW.cfg.custom_downlink = (bool)json_value_get_boolean(val);
         if (GW.cfg.custom_downlink == true) {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] custom_downlink is enable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] custom_downlink is enabled\n");
         } else {
-            lgw_log(LOG_INFO, "INFO~ [LoadCFG] custom_downlink is disable\n");
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] custom_downlink is disabled\n");
         }
     } 
 

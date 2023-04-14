@@ -237,7 +237,7 @@ typedef struct {
         bool     mac2db;                  /* if payload text save to database */
         bool     custom_downlink;         /* if make a custome downlink to node */
         time_t   last_loop;               /* timestamp for watchdog */
-        uint32_t time_interval;           /* time interval for send status */
+        uint32_t time_interval;           /* time interval for send status(seconds) */
         char   time_diff[8];               /* time diff of UTC, UTC + diff = TZ */
         char   ghost_host[32];
         char   ghost_port[16];

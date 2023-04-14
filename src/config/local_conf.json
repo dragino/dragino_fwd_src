@@ -38,7 +38,7 @@
                 "serv_port_down": 1700,
                 /* adjust the following parameters for your network */
                 "keepalive_interval": 10,
-                "stat_interval": 30,
+                "pull_interval": 10,
                 "push_timeout_ms": 100,
                 /* forward only valid packets */
                 "fport_filter": 0,  
