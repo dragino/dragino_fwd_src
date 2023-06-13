@@ -83,6 +83,7 @@ void usage(void) {
     printf(" -z <uint>     Size of the RX packet array to be passed to lgw_receive()\n");
     printf(" -m <uint>     Channel frequency plan mode [0:LoRaWAN-like, 1:Same frequency for all channels (-400000Hz on RF0)]\n");
     printf(" -j            Set radio in single input mode (SX1250 only)\n");
+    printf(" -p            lorawan public config\n");
     printf( "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" );
     printf(" --fdd         Enable Full-Duplex mode (CN490 reference design)\n");
 }
@@ -110,6 +111,7 @@ int main(int argc, char **argv)
     bool single_input_mode = false;
     float rssi_offset = 0.0;
     bool full_duplex = false;
+    bool lorawan_p = true;
 
     struct lgw_conf_board_s boardconf;
     struct lgw_conf_rxrf_s rfconf;
@@ -156,7 +158,7 @@ int main(int argc, char **argv)
     };
 
     /* parse command line options */
-    while ((i = getopt_long(argc, argv, "hja:b:k:r:n:z:m:o:d:u", long_options, &option_index)) != -1) {
+    while ((i = getopt_long(argc, argv, "hja:b:k:r:n:z:m:o:d:up", long_options, &option_index)) != -1) {
         switch (i) {
             case 'h':
                 usage();
@@ -255,6 +257,9 @@ int main(int argc, char **argv)
                     rssi_offset = (float)arg_d;
                 }
                 break;
+            case 'p':
+                lorawan_p = false;
+                break;
             case 0:
                 if (strcmp(long_options[option_index].name, "fdd") == 0) {
                     full_duplex = true;
@@ -282,7 +287,10 @@ int main(int argc, char **argv)
 
     /* Configure the gateway */
     memset( &boardconf, 0, sizeof boardconf);
-    boardconf.lorawan_public = true;
+    if (lorawan_p)
+        boardconf.lorawan_public = true;
+    else
+        boardconf.lorawan_public = false;
     boardconf.clksrc = clocksource;
     boardconf.full_duplex = full_duplex;
     boardconf.com_type = com_type;

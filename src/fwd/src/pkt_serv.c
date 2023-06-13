@@ -63,7 +63,7 @@ LGW_LIST_HEAD_STATIC(dn_list, _dn_pkt); // downlink for customer
 
 static void pkt_prepare_downlink(void* arg);
 static void pkt_deal_up(void* arg);
-static void prepare_frame(uint8_t, devinfo_s*, uint32_t, const uint8_t*, int, uint8_t*, int*, uint8_t);
+static void prepare_frame(dn_pkt_s*, devinfo_s*, uint32_t, uint8_t*, int*);
 static int strcpypt(char* dest, const char* src, int* start, int size, int len);
 
 static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint32_t us, uint8_t txmode) {
@@ -140,7 +140,7 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
     /* prepare MAC message */
     lgw_memset(payload_en, '\0', sizeof(payload_en));
 
-    prepare_frame(FRAME_TYPE_DATA_UNCONFIRMED_DOWN, devinfo, dwfcnt++, (uint8_t *)dnelem->payload, dnelem->psize, payload_en, &fsize, dnelem->txport);
+    prepare_frame(dnelem, devinfo, dwfcnt++, payload_en, &fsize);
 
     lgw_memcpy(txpkt.payload, payload_en, fsize);
 
@@ -164,7 +164,7 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
     return jit_result;
 }
 
-static void prepare_frame(uint8_t type, devinfo_s *devinfo, uint32_t downcnt, const uint8_t* payload, int payload_size, uint8_t* frame, int* frame_size, uint8_t fport) {
+static void prepare_frame(dn_pkt_s* dnelem, devinfo_s* devinfo, uint32_t downcnt, uint8_t* frame, int* frame_size) {
 	uint32_t mic;
 	uint8_t index = 0;
 	uint8_t* encrypt_payload;
@@ -174,7 +174,7 @@ static void prepare_frame(uint8_t type, devinfo_s *devinfo, uint32_t downcnt, co
 
 	/*MHDR*/
 	hdr.Value = 0;
-	hdr.Bits.MType = type;
+	hdr.Bits.MType = dnelem->ftype;
 	frame[index] = hdr.Value;
 
 	/*DevAddr*/
@@ -185,10 +185,15 @@ static void prepare_frame(uint8_t type, devinfo_s *devinfo, uint32_t downcnt, co
 
 	/*FCtrl*/
 	fctrl.Value = 0;
-	if(type == FRAME_TYPE_DATA_UNCONFIRMED_DOWN){
+	if (dnelem->ftype == FRAME_TYPE_DATA_UNCONFIRMED_DOWN) {
 		fctrl.Bits.Ack = 1;
 	}
 	fctrl.Bits.Adr = 1;
+
+	/*FOptsLen*/
+    if (dnelem->optlen && (NULL != dnelem->fopt)) 
+	    fctrl.Bits.FOptsLen = dnelem->optlen;
+
 	frame[++index] = fctrl.Value;
 
 	/*FCnt*/
@@ -196,16 +201,23 @@ static void prepare_frame(uint8_t type, devinfo_s *devinfo, uint32_t downcnt, co
 	frame[++index] = (downcnt>>8)&0xFF;
 
 	/*FOpts*/
+    if (dnelem->optlen && (NULL != dnelem->fopt)) {
+	    ++index;
+        lgw_memcpy(frame + index, dnelem->fopt, dnelem->optlen);
+        lgw_free(dnelem->fopt); 
+	    index = index + dnelem->optlen - 1;
+    }
+
 	/*Fport*/
-	frame[++index] = fport&0xFF;
+	frame[++index] = dnelem->txport&0xFF;
 
 	/*encrypt the payload*/
-	encrypt_payload = lgw_malloc(sizeof(uint8_t) * payload_size);
-	LoRaMacPayloadEncrypt(payload, payload_size, (fport == 0) ? devinfo->nwkskey : devinfo->appskey, devinfo->devaddr, DOWN, downcnt, encrypt_payload);
+	encrypt_payload = lgw_malloc(sizeof(uint8_t) * dnelem->psize);
+	LoRaMacPayloadEncrypt(dnelem->payload, dnelem->psize, (dnelem->txport == 0) ? devinfo->nwkskey : devinfo->appskey, devinfo->devaddr, DOWN, downcnt, encrypt_payload);
 	++index;
-	memcpy(frame + index, encrypt_payload, payload_size);
+	memcpy(frame + index, encrypt_payload, dnelem->psize);
 	lgw_free(encrypt_payload);
-	index += payload_size;
+	index += dnelem->psize;
 
 	/*calculate the mic*/
 	LoRaMacComputeMic(frame, index, devinfo->nwkskey, devinfo->devaddr, DOWN, downcnt, &mic);
@@ -506,7 +518,7 @@ static void pkt_deal_up(void* arg) {
                         }
 
                     } else
-                        lgw_log(LOG_DEBUG, "DEBUG~ [DNLK] Can't find SessionKeys for Dev %08X\n", devinfo.devaddr);
+                        lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]NO custom downlink command for Dev %08X\n", devinfo.devaddr);
                 }
             }
         }
@@ -533,6 +545,8 @@ static void pkt_prepare_downlink(void* arg) {
     uint8_t buff_down[512]; /* buffer to receive downstream packets */
     uint8_t dnpld[256];
     uint8_t hexpld[256];
+    uint8_t hexopt[16];
+    uint8_t swap_str[32];
 
     uint32_t bw_display;
     
@@ -588,86 +602,133 @@ static void pkt_prepare_downlink(void* arg) {
 
                 start = 0;
 
+                /********************************************************/
+                /* constrator dn_pkt_s, first fill default value */
+                /********************************************************/
                 entry = (dn_pkt_s*) lgw_malloc(sizeof(dn_pkt_s));
+                entry->optlen = 0; 
+                entry->fopt = NULL;
+                entry->txpw = 0;
+                entry->txbw = 0; 
+                entry->txdr = 0; 
+                entry->txfreq = 0; 
+                entry->rxwindow = 2; 
+                entry->txport = DEFAULT_DOWN_FPORT; 
+                entry->ftype = FRAME_TYPE_DATA_UNCONFIRMED_DOWN;        
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) < 1) { 
+                /** TODO: should be rewrite the function process **/
+
+                /** 1. addr **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) < 1) { 
                     lgw_free(entry);
                     continue;
                 } else
-                    strcpy(entry->devaddr, tmpstr);
+                    strcpy(entry->devaddr, swap_str);
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) < 1)
+
+                /** 2. txmode **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) < 1)
                     strcpy(entry->txmode, "time");
                 else
-                    strcpy(entry->txmode, tmpstr); 
+                    strcpy(entry->txmode, swap_str); 
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) < 1)
+                /** 3. payload format **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) < 1)
                     strcpy(entry->pdformat, "txt"); 
                 else
-                    strcpy(entry->pdformat, tmpstr); 
+                    strcpy(entry->pdformat, swap_str); 
 
+                /** 4. payload **/
                 psize = strcpypt((char*)dnpld, (char*)buff_down, &start, size, sizeof(dnpld)); 
                 if (psize < 1) {
                     lgw_free(entry);
                     continue;
                 }
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) > 0) {
-                    entry->txpw = atoi(tmpstr);
-                } else
-                    entry->txpw = 0;
+                /** 5. tx power **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    entry->txpw = atoi(swap_str);
+                } 
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) > 0) {
-                    entry->txbw = atoi(tmpstr);
-                } else
-                    entry->txbw = 0; 
+                /** 6. tx bandwith **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    entry->txbw = atoi(swap_str);
+                } 
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) > 0) {
-                    if (!strncmp(tmpstr, "SF7", 3))
+                /** 7. tx sf **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    if (!strncmp(swap_str, "SF7", 3))
                         entry->txdr = DR_LORA_SF7; 
-                    else if (!strncmp(tmpstr, "SF8", 3))
+                    else if (!strncmp(swap_str, "SF8", 3))
                         entry->txdr = DR_LORA_SF8; 
-                    else if (!strncmp(tmpstr, "SF9", 3))
+                    else if (!strncmp(swap_str, "SF9", 3))
                         entry->txdr = DR_LORA_SF9; 
-                    else if (!strncmp(tmpstr, "SF10", 4))
+                    else if (!strncmp(swap_str, "SF10", 4))
                         entry->txdr = DR_LORA_SF10; 
-                    else if (!strncmp(tmpstr, "SF11", 4))
+                    else if (!strncmp(swap_str, "SF11", 4))
                         entry->txdr = DR_LORA_SF11; 
-                    else if (!strncmp(tmpstr, "SF12", 4))
+                    else if (!strncmp(swap_str, "SF12", 4))
                         entry->txdr = DR_LORA_SF12; 
-                    else if (!strncmp(tmpstr, "SF5", 3))
+                    else if (!strncmp(swap_str, "SF5", 3))
                         entry->txdr = DR_LORA_SF5; 
-                    else if (!strncmp(tmpstr, "SF6", 3))
+                    else if (!strncmp(swap_str, "SF6", 3))
                         entry->txdr = DR_LORA_SF6; 
                     else 
                         entry->txdr = 0; 
-                } else 
-                    entry->txdr = 0; 
+                } 
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) > 0) {
-                    i = sscanf(tmpstr, "%u", &entry->txfreq);
+                /** 8. tx frequency **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    i = sscanf(swap_str, "%u", &entry->txfreq);
                     if (i != 1)
                         entry->txfreq = 0;
-                } else 
-                    entry->txfreq = 0; 
+                } 
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) > 0) {
-                    entry->rxwindow = atoi(tmpstr);
+                /** 9. tx window **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    entry->rxwindow = atoi(swap_str);
                     if (entry->rxwindow > 2 || entry->rxwindow < 1)
                         entry->rxwindow = 0;
-                } else 
-                    entry->rxwindow = 2; 
+                } 
 
-                if (strcpypt(tmpstr, (char*)buff_down, &start, size, sizeof(tmpstr)) > 0) {
-                    entry->txport = atoi(tmpstr);
+                /** 10. tx fport **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    entry->txport = atoi(swap_str);
                     if (entry->txport > 255 || entry->txport < 0)
                         entry->txport = DEFAULT_DOWN_FPORT;
-                } else 
-                    entry->txport = DEFAULT_DOWN_FPORT; 
+                } 
+
+                /** 11. tx optlen **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    entry->optlen = atoi(swap_str);
+                    if (entry->optlen > 32 || entry->optlen < 0)
+                        entry->optlen = 0;
+                } 
+
+                /** 12. t!x opts **/
+                if ((j = strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str))) > 0) {
+                    if (entry->optlen > 0 && (j < 32)) {
+                        hex2str(swap_str, hexopt, j);
+                        entry->fopt = lgw_malloc(sizeof(uint8_t) * j/2);
+                        lgw_memcpy(entry->fopt, hexopt, j/2);
+                        entry->optlen = j/2;  // fix optlen 
+                        lgw_log(LOG_DEBUG, "DEBUG~ [DNLK] mac-command optlen = %i.\n", entry->optlen);
+                    } else {
+                        entry->optlen = 0;
+                        entry->fopt = NULL;
+                    }
+                } 
+
+                /*******************************************************************/
+                /** End of prepare customer donwlink constractor **/
+                /*******************************************************************/
+
 
                 if (strstr(entry->pdformat, "hex") != NULL) { 
                     if (psize % 2) {
                         lgw_log(LOG_INFO, "INFO~ [DNLK] Size of hex payload invalid.\n");
+                        if (entry->fopt)
+                            lgw_free(entry->fopt);
                         lgw_free(entry);
                         continue;
                     }
@@ -743,6 +804,8 @@ static void pkt_prepare_downlink(void* arg) {
 
                     if ((lgw_db_get(db_family, "appskey", devinfo.appskey_str, sizeof(devinfo.appskey_str)) == -1) || 
                         (lgw_db_get(db_family, "nwkskey", devinfo.nwkskey_str, sizeof(devinfo.nwkskey_str)) == -1)) {
+                        if (entry->fopt)
+                            lgw_free(entry->fopt);
                         lgw_free(entry);
                         continue;
                     }
@@ -764,6 +827,8 @@ static void pkt_prepare_downlink(void* arg) {
                     else
                         lgw_log(LOG_INFO, "INFO~ [DNLK]customer immediate downlink for %s ready\n", entry->devaddr);
 
+                    if (entry->fopt)
+                        lgw_free(entry->fopt);
                     lgw_free(entry);
                     continue;
                 }
@@ -773,6 +838,8 @@ static void pkt_prepare_downlink(void* arg) {
                     element = LGW_LIST_REMOVE_HEAD(&dn_list, list);
                     if (element != NULL) {
                         dn_list.size--;
+                        if (element->fopt)
+                            lgw_free(element->fopt);
                         lgw_free(element);
                     }
                 }
@@ -781,6 +848,8 @@ static void pkt_prepare_downlink(void* arg) {
                     if (!strcmp(element->devaddr, entry->devaddr)) {
                         LGW_LIST_REMOVE_CURRENT(list);
                         dn_list.size--;
+                        if (element->fopt)
+                            lgw_free(element->fopt);
                         lgw_free(element);
                     }
                 }

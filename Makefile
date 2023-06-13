@@ -7,7 +7,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=dragino_gw_fwd
-PKG_VERSION:=2.8.6
+PKG_VERSION:=2.8.7
 PKG_RELEASE:=0
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
@@ -31,12 +31,6 @@ endef
 define Package/$(PKG_NAME)/description
   Dragino-gw is a gateway based on 
   a Semtech LoRa multi-channel RF receiver (a.k.a. concentrator).
-endef
-
-define Package/$(PKG_NAME)/extra_provides
-	echo 'libmbedcrypto.so.0';\
-	echo 'libmbedtls.so.10';\
-	echo 'libmbedx509.so.0'
 endef
 
 define Build/Prepare

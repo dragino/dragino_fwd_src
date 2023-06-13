@@ -1341,8 +1341,12 @@ static void semtech_pull_down(void* arg) {
                 decode_mac_pkt_down(&macmsg, &txpkt);
         }
 
+        /*  wait pull interval seconds for pull message */
+        /*  
+         *
         if ( (i = serv->net->pull_interval - (int)difftimespec(recv_time, send_time)) > 0)
             wait_ms(1000 * i);
+        */
     }
     lgw_log(LOG_INFO, "\nINFO~ [%s-down] End of downstream thread\n", serv->info.name);
 }

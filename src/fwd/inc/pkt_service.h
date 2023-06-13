@@ -49,6 +49,9 @@ typedef struct _dn_pkt {
     char txmode[8];
     char pdformat[8];
     uint8_t payload[512];
+    uint32_t txfreq;
+    uint8_t *fopt;
+    uint8_t ftype;
     uint8_t mode;
     uint8_t psize;
     uint8_t txdr;
@@ -56,7 +59,7 @@ typedef struct _dn_pkt {
     uint8_t txpw;
     uint8_t rxwindow;
     uint8_t txport;
-    uint32_t txfreq;
+    uint8_t optlen;
 } dn_pkt_s;
 
 int pkt_start(serv_s*);

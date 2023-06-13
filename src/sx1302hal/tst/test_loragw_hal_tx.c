@@ -150,6 +150,7 @@ int main(int argc, char **argv)
     uint32_t count_us;
     uint32_t trig_delay_us = 1000000;
     bool trig_delay = false;
+    bool lorawan_p = true;
 
     /* SPI interfaces */
     const char com_path_default[] = COM_PATH_DEFAULT;
@@ -179,7 +180,7 @@ int main(int argc, char **argv)
     };
 
     /* parse command line options */
-    while ((i = getopt_long (argc, argv, "hjif:s:b:n:z:p:k:r:c:l:t:m:o:ud:", long_options, &option_index)) != -1) {
+    while ((i = getopt_long (argc, argv, "hjif:s:b:n:z:p:k:r:c:l:t:m:o:ud:a", long_options, &option_index)) != -1) {
         switch (i) {
             case 'h':
                 usage();
@@ -320,6 +321,9 @@ int main(int argc, char **argv)
                     txlut.lut[0].rf_power = rf_power;
                 }
                 break;
+            case 'a':
+                lorawan_p = false;
+                break;
             case 'z': /* <uint> packet size */
                 i = sscanf(optarg, "%u", &arg_u);
                 if ((i != 1) || (arg_u < 9) || (arg_u > 255)) {
@@ -437,7 +441,10 @@ int main(int argc, char **argv)
 
     /* Configure the gateway */
     memset( &boardconf, 0, sizeof boardconf);
-    boardconf.lorawan_public = true;
+    if (lorawan_p)
+        boardconf.lorawan_public = true;
+    else
+        boardconf.lorawan_public = false;
     boardconf.clksrc = clocksource;
     boardconf.full_duplex = full_duplex;
     boardconf.com_type = com_type;

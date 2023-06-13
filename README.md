@@ -192,3 +192,6 @@ usb module can only make 60ms scan loop.
 ## 2023/03/21  fwd-2.8.6
 1. option set pull_interval on semtech protol pull
 
+## 2023/06/12  fwd-2.8.7
+1. customer download for opts option (mac command support)
+
