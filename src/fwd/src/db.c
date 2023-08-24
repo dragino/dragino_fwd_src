@@ -688,6 +688,8 @@ int lgw_db_init(void)
 
     /* sqlite3 staring ... */
 	db_exec_sql(CREATE_TB_GWDB_SQL, NULL, NULL);
+	db_exec_sql("PRAGMA journal_mode = WAL;", NULL, NULL);
+	db_exec_sql("PRAGMA busy_timeout = 100;", NULL, NULL);
 	db_exec_sql("DELETE FROM gwdb", NULL, NULL);
 	db_exec_sql("INSERT OR REPLACE INTO gwdb VALUES ('/fwd/startup',  datetime('now', 'localtime'))", NULL, NULL);
 	db_exec_sql(CREATE_TB_LIVEPKTS_SQL, NULL, NULL);

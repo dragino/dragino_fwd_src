@@ -1,3 +1,5 @@
 tags
 todo*
 src/*-bak
+src/**/*.bak
+src/**/*.swp

@@ -215,6 +215,7 @@ typedef struct {
         uint64_t  lgwm;			/* Lora gateway MAC address */
         uint32_t net_mac_h;
         uint32_t net_mac_l;
+        uint8_t status_index;       /* 网络状态记录次数，默认是15条记录 */
     } info;
 
     struct {
@@ -319,6 +320,7 @@ typedef struct {
 } gw_s;
 
 #define INIT_GW gw_s GW = {   .info.lgwm = 0,                                        \
+                              .info.status_index = 15,                               \
                               .hal.board = "sx1302",                                 \
                               .hal.confs = { .gwcfg = "/etc/lora/local_conf.json",   \
                                              .sxcfg = "/etc/lora/global_conf.json"}, \

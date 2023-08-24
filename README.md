@@ -195,3 +195,6 @@ usb module can only make 60ms scan loop.
 ## 2023/06/12  fwd-2.8.7
 1. customer download for opts option (mac command support)
 
+## 2023/06/19  fwd-2.8.8
+1. net status records in sqlite scheme (config with status_index)
+2. sqlite scheme optimize (fix: is locked message)

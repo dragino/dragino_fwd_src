@@ -76,14 +76,15 @@ int semtech_start(serv_s* serv) {
     serv->state.connecting = false;
     lgw_db_put("service/lorawan", serv->info.name, "running");
     lgw_db_put("thread", serv->info.name, "running");
-    snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
-    lgw_db_put(family, "network", "offline");
+    //snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
+    //lgw_db_put(family, "network0", "offline");
 
     return 0;
 }
 
 int semtech_stop(serv_s* serv) {
     char family[128] = {'\0'};
+    char status_value[24] = {'\0'};
     serv->thread.stop_sig = true;
 	sem_post(&serv->thread.sema);
     pthread_join(serv->thread.t_up, NULL);
@@ -96,7 +97,8 @@ int semtech_stop(serv_s* serv) {
     lgw_db_del("service/lorawan", serv->info.name);
     lgw_db_del("thread", serv->info.name);
     snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
-    lgw_db_put(family, "network", "offline");
+    snprintf(status_value, sizeof(status_value), "%u:offline", time(NULL));
+    lgw_db_put(family, "network15", status_value);
     return 0;
 }
 
@@ -626,6 +628,8 @@ static void semtech_pull_down(void* arg) {
     int retry;
 
     uint32_t pull_send = 0, pull_ack = 0;  /* for reconnecting */
+    uint8_t status_index = 1;
+    char db_key[16] = {'\0'},  status_value[24] = {'\0'};
 
     /* configuration and metadata for an outbound packet */
     struct lgw_pkt_tx_s txpkt;
@@ -808,7 +812,7 @@ static void semtech_pull_down(void* arg) {
         buff_req[1] = token_h;
         buff_req[2] = token_l;
 
-        if (pull_ack < pull_send) {    // this function will keep the socket alive 
+        if (pull_ack < labs(pull_send * 0.95)) {    // this function check the server if alive 
             pull_send = 0;
             pull_ack = 0;
             close(serv->net->sock_down);   //udp socket no need conneting, direct close
@@ -818,7 +822,13 @@ static void semtech_pull_down(void* arg) {
             serv->state.connecting = false;
         }
 
-        lgw_db_put(family, "network", serv->state.connecting ? "online" : "offline");
+        snprintf(db_key, sizeof(db_key), "network%i", status_index++);
+        snprintf(status_value, sizeof(status_value), "%u:%s", time(NULL), serv->state.connecting ? "online" : "offline");
+        lgw_db_put(family, db_key, status_value);
+
+        /* netstatus slot = 15 */
+        if (status_index > GW.info.status_index)  
+            status_index = 1;
 
         /* send PULL request and record time */
         send(serv->net->sock_down, (void *)buff_req, sizeof buff_req, 0);

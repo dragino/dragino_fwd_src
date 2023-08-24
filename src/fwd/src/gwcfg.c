@@ -1422,6 +1422,15 @@ static int parse_gateway_configuration(const char* conf_file) {
         lgw_log(LOG_INFO, "INFO~ [LoadCFG] GW description: \"%s\"\n", GW.info.description);
     }
 
+    val = json_object_get_value(conf_obj, "status_index");
+    if (json_value_get_type(val) == JSONNumber) {
+        GW.info.status_index = (uint8_t)json_value_get_number(val);
+    } else {
+        lgw_log(LOG_INFO, "WARNING~ [LoadCFG] Data type for status_index seems wrong, please check\n");
+        GW.info.status_index = 15;
+    }
+    lgw_log(LOG_INFO, "INFO~ [LoadCFG] GW status index set to: \"%i\"\n", GW.info.status_index);
+
     /* GPS module TTY path (optional) */
     str = json_object_get_string(conf_obj, "gps_tty_path");
     if (str != NULL) {
