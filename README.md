@@ -29,14 +29,14 @@ Reference Link: [Armbian Compile Instruction](http://wiki1.dragino.com/xwiki/bin
 
 make if with sx1301/sx1308
 ```
-cd dragino_fwd_src
+cd dragino_fwd_src/src
 make clean
 ./hp0z-make-deb.sh  r1
 ```
 
 make if with sx1302
 ```
-cd dragino_fwd_src
+cd dragino_fwd_src/src
 make clean
 ./hp0z-make-deb.sh  r2
 ```
