@@ -443,7 +443,36 @@ static void gps_read(aio_t* _aio) {
                         gpsline[done+4] == 'G' && gpsline[done+5] == 'A' && gpsline[done+6] == ',' ) {
                         nmea_gga((char*)gpsline+7);
                     }
-                }
+                    // My GPS data consistently looks like this:
+                    //
+                    // $BDGSV,2,2,06,30,34,102,30,32,36,057,21,0*73
+                    // $GNRMC,001219.000,A,4638.86262,N,00624.57743,E,0.00,82.46,061223,,,A,V*3E
+                    // $GNVTG,82.46,T,,M,0.00,N,0.00,K,A*1B
+                    // $GNZDA,001219.000,06,12,2023,00,00*45
+                    // $GPTXT,01,01,01,ANTENNA OK*35
+                    // ???pE?I????:?b?~?
+                    // ?$GNGGA,001220.000,4638.86262,N,00624.57743,E,1,12,1.0,853.3,M,49.8,M,,*4A
+                    // $GNGLL,4638.86262,N,00624.57743,E,001220.000,A,A*45
+                    // $GNGSA,A,3,08,10,16,21,23,27,32,,,,,,1.7,1.0,1.4,1*3B
+                    // $GNGSA,A,3,05,13,20,30,32,,,,,,,,1.7,1.0,1.4,4*31
+                    // $GPGSV,3,1,09,02,40,274,,08,71,297,23,10,57,065,22,14,06,328,,0*60
+                    //
+                    // Note the recurring garbage between the checksum of the GPTXT sentence and
+                    // the following GNGGA. This prevents this code from ever finding the GGA.
+                    //
+                    // My proposed fix is to skip the garbage:
+                    if( gpsline[done+0] == '$' && gpsline[done+1] == 'G' &&
+                            gpsline[done+2] == 'P' && gpsline[done+3] == 'T' && gpsline[done+4] == 'X' &&
+                            gpsline[done+5] == 'T' ) {
+                                while (i < n && gpsline[i] != '$') {
+                                    i++;
+                                }
+                                // gpsline[i] is '$', the start of the next line, so rewind
+                                // one, so that the "done = i+1" below results in
+                                // gpsline[done] being '$' as it should be.
+                                i--;
+                        }
+                    }
                 else {
                     if( garbageCnt == 0 ) {
                         LOG(MOD_GPS|XDEBUG, "GPS garbage (%d bytes): %64H", i+1, i+1, &gpsline[done]);
