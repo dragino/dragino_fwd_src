@@ -49,7 +49,7 @@
 #ifdef SX1301MOD
 #define NB_PKT_MAX                  16            /* max number of packets per fetch/send cycle */
 #else
-#define NB_PKT_MAX                  255           /* max number of packets per fetch/send cycle */
+#define NB_PKT_MAX                  32            /* max number of packets per fetch/send cycle */
 #endif
 
 typedef enum {
@@ -90,24 +90,14 @@ typedef enum {     /* thread type for control thread head */
     watchdog
 } thread_type;
 
-typedef struct _thread_info {
-    LGW_LIST_ENTRY(_thread_info) list;
-    char*       name;
-    pthread_t*  id;
-    thread_type type;
-    bool        runing;
-    time_t      dog;
-    sem_t*      sema;
-} thread_info;
-
 typedef struct _rxpkts {   /* rx packages receive from radio or socke */
-    LGW_LIST_ENTRY(_rxpkts) list;
     //bool deal;
     uint32_t entry_us;     //插入添加时间
     uint8_t stamps;        //这个指示当前有什么服务对这个包打上了印记
     uint8_t nb_pkt;
     uint8_t bind;          //当前还剩多少连接，当连接为0时，将会移除这个包
     struct lgw_pkt_rx_s rxpkt[NB_PKT_MAX];
+    LGW_LIST_ENTRY(_rxpkts) list;
 } rxpkts_s;
 
 typedef enum {
@@ -156,10 +146,6 @@ LGW_LIST_HEAD(rxpkts_list, _rxpkts);     //定义一个数据链头，用来保�
  * 
  */
 typedef struct _server {
-    LGW_LIST_ENTRY(_server) list;
-
-    struct lgw_pkt_rx_s rxpkt[NB_PKT_MAX];
-    //struct rxpkts_list rxpkts_list;
     struct {
 	    serv_type type;		        // type of server
         uint8_t stamp;              // 用来标记service，当有服务印上这个标记时，代表和当前的service有关联
@@ -171,6 +157,7 @@ typedef struct _server {
     struct {
         filter_e fport;             /* 0/1/2, 0不处理，1如果过滤匹配数据库的，2转发匹配数据库的 */
         filter_e devaddr;           /* 和fport相同 */
+        filter_e nwkid;             /* 和fport相同 */
         bool fwd_valid_pkt;         /* packets with PAYLOAD CRC OK are forwarded */
         bool fwd_error_pkt;         /* packets with PAYLOAD CRC ERROR are NOT forwarded */
         bool fwd_nocrc_pkt;         /* packets with NO PAYLOAD CRC are NOT forwarded */
@@ -196,9 +183,30 @@ typedef struct _server {
 
     report_s* report;
 
+    LGW_LIST_ENTRY(_server) list;
+
 } serv_s;
 
 LGW_LIST_HEAD_NOLOCK(serv_list, _server);  // pkts list head of rxpkts for server 
+
+typedef struct {
+    int nb_pkt;
+    struct lgw_pkt_rx_s rxpkt[NB_PKT_MAX];
+    serv_s* serv;
+} serv_ct_s;
+
+typedef struct _thread_info {
+    pthread_t  tid;
+    thread_type type;
+    bool        runing;
+    time_t      dog;
+    uint32_t start_us;
+    uint32_t end_us;
+    serv_ct_s* serv_ct;  //记录一个服务内容，检测它是否已经销毁
+    LGW_LIST_ENTRY(_thread_info) list;
+} thread_info;
+
+LGW_LIST_HEAD(pthread_list, _thread_info);     //定义一个数据链头，用来控制线程数量         
 
 struct lbt_chan_stat {
     uint32_t freq_hz;
@@ -250,7 +258,8 @@ typedef struct {
     struct {
         char   gps_tty_path[64];        /* path of the TTY port GPS is connected on */
         int    gps_tty_fd;
-        bool   gps_enabled;		        /* controls the use of the GPS                      */
+        bool   gps_enabled;		        /* controls the use of the GPS                   */
+        bool   time_ref;		        /* controls the time refer from gps              */
         bool   gps_ref_valid;           /* is GPS reference acceptable (ie. not too old) */
         bool   gps_fake_enable;
         struct tref time_reference_gps; /* time reference used for UTC <-> timestamp conversion */
@@ -340,6 +349,7 @@ typedef struct {
                               .cfg.time_interval = 30,                               \
                               .cfg.time_diff = "8",                                  \
                               .gps.gps_tty_path[0] = 0,                              \
+                              .gps.time_ref = false,                                 \
                               .gps.mx_timeref  = PTHREAD_MUTEX_INITIALIZER,          \
                               .gps.mx_meas_gps = PTHREAD_MUTEX_INITIALIZER,          \
                               .lbt.lbt_tty_enabled = false,                          \

@@ -69,9 +69,9 @@
 
 #define DEFAULT_BEACON_POLL_MS              50	        /* time in ms between polling of beacon TX status */
 
-#define DEFAULT_RXPKTS_LIST_SIZE            8           
+#define DEFAULT_RXPKTS_LIST_SIZE            32           
 
-#define  MAX_RXPKTS_LIST_SIZE               64         /* MAX sizeof RXPKTS */
+#define  MAX_RXPKTS_LIST_SIZE               128         /* MAX sizeof RXPKTS */
 
 #define TX_BUFF_SIZE                        ((540 * NB_PKT_MAX) + 30 + STATUS_SIZE)
 
@@ -93,6 +93,8 @@
 
 #define GPS_REF_MAX_AGE     30	/* maximum admitted delay in seconds of GPS loss before considering latest GPS sync unusable */
 /* Number of seconds ellapsed between 01.Jan.1970 00:00:00 and 06.Jan.1980 00:00:00 */
+
+#define MAX_PTHREADS        3
                                                                           
 
 /*!
@@ -153,6 +155,6 @@ int get_tx_gain_lut_index(uint8_t rf_chain, int8_t rf_power, uint8_t * lut_index
 /*!
  * \brief 
  */
-int get_rxpkt(serv_s* serv);
+int get_rxpkt(serv_ct_s* serv_ct);
 
 #endif							/* _DR_PKT_FWD_H_ */

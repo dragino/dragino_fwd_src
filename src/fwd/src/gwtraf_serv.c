@@ -104,9 +104,15 @@ static void gwtraf_push_up(void* arg) {
 		// wait for data to arrive
 		sem_wait(&serv->thread.sema);
 
-        nb_pkt = get_rxpkt(serv);     //only get the first rxpkt of list
-        if (nb_pkt == 0)
+        serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
+        serv_ct->serv = serv;
+
+        nb_pkt = serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
+
+        if (nb_pkt == 0) {
+            lgw_free(serv_ct);
             continue;
+        }
 
         lgw_log(LOG_DEBUG, "DEBUG~ [%s] gwtraf_push_up fetch %d pachages.\n", serv->info.name, nb_pkt);
 
@@ -133,6 +139,7 @@ static void gwtraf_push_up(void* arg) {
         if (j > 0) {
             buff_index += j;
         } else {
+            lgw_free(serv_ct);
             continue;
         }
 
@@ -140,7 +147,7 @@ static void gwtraf_push_up(void* arg) {
 
         /* serialize one Lora packet metadata and payload */
         for (i = 0; i < nb_pkt; i++) {
-            p = &serv->rxpkt[i];
+            p = &serv_ct->rxpkt[i];
 
             buff_index = strt;
 
@@ -382,7 +389,7 @@ static void gwtraf_push_up(void* arg) {
             /* send datagram to servers sequentially */
             send(serv->net->sock_up, (void *)buff_up, buff_index, 0);
         }
-
+        lgw_free(serv_ct);
 	}
     lgw_log(LOG_INFO, "INFO~ [%s] END of gwtraf_push_up\n", serv->info.name);
 }

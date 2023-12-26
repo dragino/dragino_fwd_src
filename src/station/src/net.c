@@ -511,7 +511,7 @@ static void ws_closing_w (aio_t* aio) {
 static void ws_connected_w (aio_t* aio) {
     ws_t* conn = (ws_t*)aio->ctx;
     assert(conn->state == WS_CONNECTED);
-    // LOG(MOD_AIO|XDEBUG, "[%d] ws_connected_w state=%d", conn->netctx.fd, conn->state);
+    LOG(MOD_AIO|XDEBUG, "[%d] ws_connected_w state=%d", conn->netctx.fd, conn->state);
     int e;
   again:
     if( conn->wpos < conn->wend ) {
@@ -561,7 +561,7 @@ static void ws_connected_w (aio_t* aio) {
 static void ws_connected_r (aio_t* aio) {
     ws_t* conn = (ws_t*)aio->ctx;
     assert(conn->state >= WS_CONNECTED);  // also called during close
-    // LOG(MOD_AIO|XDEBUG, "[%d|WS] ws_connected_r state=%d", conn->netctx.fd, conn->state);
+    LOG(MOD_AIO|XDEBUG, "[%d|WS] ws_connected_r state=%d", conn->netctx.fd, conn->state);
     int e;
   again:
     if( (e = readData(conn, WS_FRAME)) == IO_ERROR ) {
@@ -815,8 +815,12 @@ dbuf_t ws_getSendbuf (ws_t* conn, int minsize) {
 // b->pos should be the length of the filled in data
 //
 void ws_sendData (ws_t* conn, dbuf_t* b, int binaryData) {
-    if( conn->state != WS_CONNECTED )
+    if( conn->state != WS_CONNECTED ) {
+        LOG(MOD_AIO|XDEBUG, "[%d|WS] ws_sendData state=%d", conn->netctx.fd, conn->state);
+        ws_shutdown(conn);
         return;
+    }
+        //return;
     int n = b->pos;
     b->buf[0-WSHDR_INTRA] = n>>8;
     b->buf[1-WSHDR_INTRA] = n;

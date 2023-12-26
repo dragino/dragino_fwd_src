@@ -59,6 +59,8 @@
     },
 
     "gateway_conf": {
+        "lbt_tty_enabel": true,
+        "lbt_tty_path": /dev/ttyUSB4,
         "platform": "LG302",
         "description": "LoRa gateway",
         "gateway_ID": "AA555A100000FFFF",

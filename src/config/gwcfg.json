@@ -45,6 +45,19 @@
                 "forward_crc_valid": true,
                 "forward_crc_error": false,
                 "forward_crc_disabled": false
+            },
+            {
+                /* change with default server address/ports */
+                "server_name": "pkt_serv",  //name是服务的标识，必须要设置一个name
+                "enabled": true,
+                "server_type": "pkt",  //服务类型有：semtech, mqtt, gwtraft, ttn, pkt
+                /* forward only valid packets */
+                "fport_filter": 0,  
+                "devaddr_filter": 0, // 和fport的设置相同
+                "nwid_filter": 0, // 和fport的设置相同
+                "forward_crc_valid": true,
+                "forward_crc_error": false,
+                "forward_crc_disabled": false
             }
         ]
     },

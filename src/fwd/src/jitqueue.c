@@ -37,7 +37,7 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #define TX_MARGIN_DELAY         1000    /* Packet overlap margin in microseconds */
                                         /* TODO: How much margin should we take? */
 #define TX_JIT_DELAY            30000   /* Pre-delay to program packet for TX in microseconds */
-#define TX_MAX_ADVANCE_DELAY    ((JIT_NUM_BEACON_IN_QUEUE + 1) * 128 * 1E6) /* Maximum advance delay accepted for a TX packet, compared to current time */
+#define TX_MAX_ADVANCE_DELAY    512000000 /* Maximum advance delay accepted for a TX packet, compared to current time */
 
 #define BEACON_GUARD            3000000 /* Interval where no ping slot can be placed,
                                             to ensure beacon can be sent */
@@ -246,7 +246,7 @@ enum jit_error_e jit_enqueue(struct jit_queue_s *queue, uint32_t time_us, struct
      */
     if ((pkt_type == JIT_PKT_TYPE_DOWNLINK_CLASS_A) || (pkt_type == JIT_PKT_TYPE_DOWNLINK_CLASS_B)) {
         if ((packet->count_us - time_us) > TX_MAX_ADVANCE_DELAY) {
-            lgw_log(LOG_JIT_ERROR, "ERROR~ [JIT] Packet REJECTED, timestamp seems wrong, too much in advance (current=%u, packet=%u, type=%d)\n", time_us, packet->count_us, pkt_type);
+            lgw_log(LOG_JIT_ERROR, "ERROR~ [JIT] Packet REJECTED, too much in advance (current=%u, packet=%u, type=%d, max=%u)\n", time_us, packet->count_us, pkt_type, TX_MAX_ADVANCE_DELAY);
             pthread_mutex_unlock(&mx_jit_queue);
             return JIT_ERROR_TOO_EARLY;
         }

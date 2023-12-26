@@ -109,11 +109,19 @@ int init_sock(const char *addr, const char *port, const void *timeout, int size)
 bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport) {
     char addr_key[64] = {0};
     char fport_key[48] = {0};
+    char nwkid_key[64] = {0};
+    uint8_t nwkid = 0;
 
     snprintf(addr_key, sizeof(addr_key), "%s/devaddr/%08X", serv->info.name, addr);
     snprintf(fport_key, sizeof(fport_key), "%s/fport/%u", serv->info.name, fport);
+#ifdef BIGENDIAN
+    nwkid = (addr >> 25) & 0xFF;   /* Devaddr Format:  31..25(NwkID)  24..0(NwkAddr) */
+#else
+    nwkid = (addr << 25) & 0xFF;
+#endif
+    snprintf(nwkid_key, sizeof(nwkid_key), "%s/nwkid/%02X", serv->info.name, nwkid);
 
-	lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport-lv=%d, addr-lv=%d, addr_key=%s, fport_key=%s\n", serv->info.name, serv->filter.fport, serv->filter.devaddr, addr_key, fport_key);
+	lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, addr_key=%s, fport_key=%s, nwkid_key=%s\n", serv->info.name, serv->filter.fport, serv->filter.devaddr, serv->filter.nwkid, addr_key, fport_key, nwkid_key);
     
     switch(serv->filter.fport) {
         case INCLUDE: // 1
@@ -128,7 +136,7 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport) {
             }
             break;
         default:
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport nofilter\n", serv->info.name);
+            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport no filter\n", serv->info.name);
             break;
     }
 
@@ -142,11 +150,27 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport) {
                 return true; 
             break;
         default:
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] devaddr nofilter\n", serv->info.name);
+            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] devaddr no filter\n", serv->info.name);
             break;
     }
 
-    lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] default: nofilter\n", serv->info.name);
+    switch(serv->filter.nwkid) {
+        case INCLUDE: //1
+            if (lgw_db_key_exist(nwkid_key))
+                return true; // filter
+            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] nwkid(%02X) not INCLUDE \n", serv->info.name, nwkid);
+            break;
+        case EXCLUDE:
+            if (!lgw_db_key_exist(nwkid_key))
+                return true; 
+            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] nwkid(%02X) not EXCLUDE \n", serv->info.name, nwkid);
+            break;
+        default:
+            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] nwkid(%02X) no filter\n", serv->info.name, nwkid);
+            break;
+    }
+
+    //lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] default: no filter\n", serv->info.name);
     return false;  // no-filter
 }
 

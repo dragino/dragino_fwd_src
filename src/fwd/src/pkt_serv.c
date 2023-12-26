@@ -50,6 +50,7 @@
 #include "mac-header-decode.h"
 
 DECLARE_GW;
+//extern struct pthread_list pkt_pthread_list;
 
 static uint8_t rx2bw;
 static uint8_t rx2dr;
@@ -61,8 +62,14 @@ static char tmpstr[16] = {'\0'};
 
 LGW_LIST_HEAD_STATIC(dn_list, _dn_pkt); // downlink for customer
 
+static int pthread_list_size = 0;
+pthread_mutex_t  mx_pthread_list_size = PTHREAD_MUTEX_INITIALIZER;
+
+static uint32_t current_concentrator_time;
+
 static void pkt_prepare_downlink(void* arg);
 static void pkt_deal_up(void* arg);
+static void thread_pkt_deal_up(void* arg);
 static void prepare_frame(dn_pkt_s*, devinfo_s*, uint32_t, uint8_t*, int*);
 static int strcpypt(char* dest, const char* src, int* start, int size, int len);
 
@@ -74,7 +81,6 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
     uint8_t payload_en[DEFAULT_PAYLOAD_SIZE] = {'\0'};  /* data which have decrypted */
     struct lgw_pkt_tx_s txpkt;
 
-    uint32_t current_concentrator_time;
     enum jit_error_e jit_result = JIT_ERROR_OK;
     enum jit_pkt_type_e downlink_type;
 
@@ -346,18 +352,39 @@ void pkt_stop(serv_s* serv) {
     lgw_db_del("thread", serv->info.name);
 }
 
-static void pkt_deal_up(void* arg) {
-    serv_s* serv = (serv_s*) arg;
-    lgw_log(LOG_INFO, "INFO~ [%s] Staring pkt_deal_up thread\n", serv->info.name);
+static uint32_t timeval_sub(struct timeval *a, struct timeval *b) {
+    uint32_t t = 0;
+    if (b->tv_sec > a->tv_sec) {
+        t = b->tv_sec - a->tv_sec;
+        t = t * 1000000UL;
+    }
+
+    t = t + b->tv_usec;
+
+    if (t > a->tv_usec) {
+        t = t - a->tv_usec;
+    } else
+        t = 0;
+
+    return t;
+}
+
+static void thread_pkt_deal_up(void* arg) {
+    serv_ct_s* serv_ct = (serv_ct_s*) arg;
+    serv_s* serv = serv_ct->serv;
+    pthread_t tid = pthread_self();
+    
+    //struct timeval start_us, end_us;
+
+    //gettimeofday(&start_us, NULL);
+
+    //lgw_log(LOG_DEBUG, "THREAD~<< [tid=%ld] startup(%u:%u)\n", tid, start_us.tv_sec, start_us.tv_usec);
 
 	int i;					/* loop variables */
     int fsize = 0;
     int index = 0;
-    int nb_pkt = 0;
 
 	struct lgw_pkt_rx_s *p;	/* pointer on a RX packet */
-
-    rxpkts_s* rxpkt_entry = NULL;
 
 	int buff_index;
 
@@ -368,162 +395,167 @@ static void pkt_deal_up(void* arg) {
 
     LoRaMacMessageData_t macmsg;
 
-	while (!serv->thread.stop_sig) {
-		// wait for data to arrive
-		sem_wait(&serv->thread.sema);
+    for (i = 0; i < serv_ct->nb_pkt; i++) {
+        p = &serv_ct->rxpkt[i];
+        switch(p->status) {
+            case STAT_CRC_OK:
+                if (!serv->filter.fwd_valid_pkt) {
+                    continue; /* skip that packet */
+                }
+                break;
+            case STAT_CRC_BAD:
+                if (!serv->filter.fwd_error_pkt) {
+                    continue; /* skip that packet */
+                }
+                break;
+            case STAT_NO_CRC:
+                if (!serv->filter.fwd_nocrc_pkt) {
+                    continue; /* skip that packet */
+                }
+                break;
+            default:
+                continue; /* skip that packet */
+        }
 
-        nb_pkt = get_rxpkt(serv);     //only get the first rxpkt of list
-
-        if (nb_pkt == 0)
+        if (p->size < 13) /* offset of frmpayload */
             continue;
 
-        lgw_log(LOG_DEBUG, "DEBUG~ [%s] pkt_push_up fetch %d pachages.\n", serv->info.name, nb_pkt);
+        memset(&macmsg, 0, sizeof(macmsg));
+        macmsg.Buffer = p->payload;
+        macmsg.BufSize = p->size;
 
-        /* serialize one Lora packet metadata and payload */
-        for (i = 0; i < nb_pkt; i++) {
-            p = &serv->rxpkt[i];
-            switch(p->status) {
-                case STAT_CRC_OK:
-                    if (!serv->filter.fwd_valid_pkt) {
-                        continue; /* skip that packet */
-                    }
-                    break;
-                case STAT_CRC_BAD:
-                    if (!serv->filter.fwd_error_pkt) {
-                        continue; /* skip that packet */
-                    }
-                    break;
-                case STAT_NO_CRC:
-                    if (!serv->filter.fwd_nocrc_pkt) {
-                        continue; /* skip that packet */
-                    }
-                    break;
-                default:
-                    continue; /* skip that packet */
-            }
+        if (LoRaMacParserData(&macmsg) != LORAMAC_PARSER_SUCCESS)
+            continue;
 
-            if (p->size < 13) /* offset of frmpayload */
+        if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || serv->filter.nwkid != NOFILTER) {
+            if (pkt_basic_filter(serv, macmsg.FHDR.DevAddr, macmsg.FPort)) {
+                lgw_log(LOG_INFO, "INFO~ [%s-up] Drop a packet has fport(%u) of %08X.\n", serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
                 continue;
-
-            memset(&macmsg, 0, sizeof(macmsg));
-            macmsg.Buffer = p->payload;
-            macmsg.BufSize = p->size;
-
-            if (LoRaMacParserData(&macmsg) != LORAMAC_PARSER_SUCCESS)
-                continue;
-
-            decode_mac_pkt_up(&macmsg, p);
-
-            if (GW.cfg.mac_decode || GW.cfg.custom_downlink) {
-                devinfo_s devinfo = { .devaddr = macmsg.FHDR.DevAddr, 
-                                      .devaddr_str = {0},
-                                      .appskey_str = {0},
-                                      .nwkskey_str = {0}
-                                    };
-                sprintf(db_family, "devinfo/%08X", devinfo.devaddr);
-                if ((lgw_db_get(db_family, "appskey", devinfo.appskey_str, sizeof(devinfo.appskey_str)) == -1) || 
-                    (lgw_db_get(db_family, "nwkskey", devinfo.nwkskey_str, sizeof(devinfo.nwkskey_str)) == -1)) {
-                    continue;
-                }
-
-                str2hex(devinfo.appskey, devinfo.appskey_str, sizeof(devinfo.appskey));
-                str2hex(devinfo.nwkskey, devinfo.nwkskey_str, sizeof(devinfo.nwkskey));
-
-                /* Debug message of appskey */
-                /*
-                lgw_log(LOG_DEBUG, "\nDEBUG~ [MAC-Decode]appskey:");
-                for (j = 0; j < (int)sizeof(devinfo.appskey); ++j) {
-                    lgw_log(LOG_DEBUG, "%02X", devinfo.appskey[j]);
-                }
-                lgw_log(LOG_DEBUG, "\n");
-                */
-
-                if (GW.cfg.mac_decode) {
-                    int l;
-                    uint32_t fcnt, mic;
-					bool fcnt_valid = false;
-                    fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
-                    memcpy(payload_encrypt, p->payload + 9 + macmsg.FHDR.FCtrl.Bits.FOptsLen, fsize);
-                    for (l = 0; l < FCNT_GAP; l++) {   // loop 8 times
-                        fcnt = macmsg.FHDR.FCnt | (l * 0x10000);
-                        LoRaMacComputeMic(p->payload, p->size - 4, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, &mic);
-                        lgw_log(LOG_DEBUG, "DEBUG~ [MIC] mic=%08X, MIC=%08X, fcnt=%u, FCNT=%u\n", mic, macmsg.MIC, fcnt, macmsg.FHDR.FCnt);
-                        if (mic == macmsg.MIC) {
-                            fcnt_valid = true;
-                            lgw_log(LOG_DEBUG, "DEBUG~ [MIC] Found a match fcnt(=%u)\n", fcnt);
-                            break;
-                        }
-                    }
-
-                    if (fcnt_valid) {
-                    
-                        if (macmsg.FPort == 0)
-                            LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, payload_txt);
-                        else
-                            LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.appskey, devinfo.devaddr, UP, fcnt, payload_txt);
-
-                        /* Debug message of decoded payload */
-                        lgw_log(LOG_DEBUG, "\nDEBUG~ [MAC-Decode] RX(%d):", fsize);
-                        for (i = 0; i < fsize; ++i) {
-                            lgw_log(LOG_DEBUG, "%02X", payload_txt[i]);
-                        }
-                        lgw_log(LOG_DEBUG, "\n");
-
-                        if (GW.cfg.mac2file) {
-                            FILE *fp;
-                            char pushpath[128];
-                            char rssi_snr[32] = {'\0'};
-                            snprintf(pushpath, sizeof(pushpath), "/var/iot/channels/%08X", devinfo.devaddr);
-                            fp = fopen(pushpath, "w+");
-                            if (NULL == fp)
-                                lgw_log(LOG_WARNING, "WARNING~ [Decrypto] Fail to open path: %s\n", pushpath);
-                            else { 
-                                sprintf(rssi_snr, "%08X%08X", (short)p->rssic, (short)(p->snr*10));
-                                fwrite(rssi_snr, sizeof(char), 16, fp);
-                                fwrite(payload_txt, sizeof(uint8_t), fsize, fp);
-                                fflush(fp); 
-                                fclose(fp);
-                            }
-                        
-                        }
-
-                        if (GW.cfg.mac2db) { /* 每个devaddr最多保存10个payload */
-                            sprintf(db_family, "/payload/%08X", devinfo.devaddr);
-                            if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
-                                lgw_db_put(db_family, "index", "0");
-                            } else 
-                                index = atoi(tmpstr) % 9;
-                            sprintf(db_family, "/payload/%08X/%d", devinfo.devaddr, index);
-                            sprintf(db_key, "%u", p->count_us);
-                            lgw_db_put(db_family, db_key, (char*)payload_txt);
-                        }
-                    }
-                }
-
-                if (GW.cfg.custom_downlink) {
-                    /* Customer downlink process */
-                    dn_pkt_s* dnelem = NULL;
-                    sprintf(tmpstr, "%08X", devinfo.devaddr);
-                    dnelem = search_dn_list(tmpstr);
-                    if (dnelem != NULL) {
-                        lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]Found a match devaddr: %s, prepare a downlink!\n", tmpstr);
-                        jit_result = custom_rx2dn(dnelem, &devinfo, p->count_us, TIMESTAMPED);
-                        if (jit_result == JIT_ERROR_OK) { /* Next upmsg willbe indicate if received by note */
-                            LGW_LIST_LOCK(&dn_list);
-                            LGW_LIST_REMOVE(&dn_list, dnelem, list);
-                            lgw_free(dnelem);
-                            LGW_LIST_UNLOCK(&dn_list);
-                        } else {
-                            lgw_log(LOG_ERROR, "ERROR~ [DNLK]Packet REJECTED (jit error=%d)\n", jit_result);
-                        }
-
-                    } else
-                        lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]NO custom downlink command for Dev %08X\n", devinfo.devaddr);
-                }
             }
         }
-	}
-    lgw_log(LOG_INFO, "INFO~ [%s] END of pkt_deal_up thread\n", serv->info.name);
+
+        decode_mac_pkt_up(&macmsg, p);
+
+        if (GW.cfg.mac_decode || GW.cfg.custom_downlink) {
+            devinfo_s devinfo = { .devaddr = macmsg.FHDR.DevAddr, 
+                                  .devaddr_str = {0},
+                                  .appskey_str = {0},
+                                  .nwkskey_str = {0}
+                                };
+            sprintf(db_family, "devinfo/%08X", devinfo.devaddr);
+            if ((lgw_db_get(db_family, "appskey", devinfo.appskey_str, sizeof(devinfo.appskey_str)) == -1) || 
+                (lgw_db_get(db_family, "nwkskey", devinfo.nwkskey_str, sizeof(devinfo.nwkskey_str)) == -1)) {
+                continue;
+            }
+
+            str2hex(devinfo.appskey, devinfo.appskey_str, sizeof(devinfo.appskey));
+            str2hex(devinfo.nwkskey, devinfo.nwkskey_str, sizeof(devinfo.nwkskey));
+
+            /* Debug message of appskey */
+            /*
+            lgw_log(LOG_DEBUG, "\nDEBUG~ [MAC-Decode]appskey:");
+            for (j = 0; j < (int)sizeof(devinfo.appskey); ++j) {
+                lgw_log(LOG_DEBUG, "%02X", devinfo.appskey[j]);
+            }
+            lgw_log(LOG_DEBUG, "\n");
+            */
+
+            if (GW.cfg.mac_decode) {
+                int l;
+                uint32_t fcnt, mic;
+				bool fcnt_valid = false;
+                fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
+                memcpy(payload_encrypt, p->payload + 9 + macmsg.FHDR.FCtrl.Bits.FOptsLen, fsize);
+                for (l = 0; l < FCNT_GAP; l++) {   // loop 8 times
+                    fcnt = macmsg.FHDR.FCnt | (l * 0x10000);
+                    LoRaMacComputeMic(p->payload, p->size - 4, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, &mic);
+                    //lgw_log(LOG_DEBUG, "DEBUG~ [MIC] mic=%08X, MIC=%08X, fcnt=%u, FCNT=%u\n", mic, macmsg.MIC, fcnt, macmsg.FHDR.FCnt);
+                    if (mic == macmsg.MIC) {
+                        fcnt_valid = true;
+                        lgw_log(LOG_DEBUG, "DEBUG~ [MIC] Found a match fcnt(=%u)\n", fcnt);
+                        break;
+                    }
+                }
+
+                if (fcnt_valid) {
+                
+                    if (macmsg.FPort == 0)
+                        LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, payload_txt);
+                    else
+                        LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.appskey, devinfo.devaddr, UP, fcnt, payload_txt);
+
+                    /* Debug message of decoded payload */
+                    /*
+                    lgw_log(LOG_DEBUG, "\nDEBUG~ [MAC-Decode] RX(%d):", fsize);
+                    for (i = 0; i < fsize; ++i) {
+                        lgw_log(LOG_DEBUG, "%02X", payload_txt[i]);
+                    }
+                    lgw_log(LOG_DEBUG, "\n");
+                    */
+
+                    if (GW.cfg.mac2file) {
+                        FILE *fp;
+                        char pushpath[128];
+                        char rssi_snr[32] = {'\0'};
+                        snprintf(pushpath, sizeof(pushpath), "/var/iot/channels/%08X-%u", devinfo.devaddr, fcnt % 5);
+                        fp = fopen(pushpath, "w+");
+                        if (NULL == fp)
+                            lgw_log(LOG_WARNING, "WARNING~ [Decrypto] Fail to open path: %s\n", pushpath);
+                        else { 
+                            sprintf(rssi_snr, "%08X%08X", (short)p->rssic, (short)(p->snr*10));
+                            fwrite(rssi_snr, sizeof(char), 16, fp);
+                            fwrite(payload_txt, sizeof(uint8_t), fsize, fp);
+                            fflush(fp); 
+                            fclose(fp);
+                        }
+                    
+                    }
+
+                    if (GW.cfg.mac2db) { /* 每个devaddr最多保存10个payload */
+                        sprintf(db_family, "/payload/%08X", devinfo.devaddr);
+                        if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
+                            lgw_db_put(db_family, "index", "0");
+                        } else 
+                            index = atoi(tmpstr) % 9;
+                        sprintf(db_family, "/payload/%08X/%d", devinfo.devaddr, index);
+                        sprintf(db_key, "%u", p->count_us);
+                        lgw_db_put(db_family, db_key, (char*)payload_txt);
+                    }
+                }
+            }
+
+            if (GW.cfg.custom_downlink) {
+                /* Customer downlink process */
+                dn_pkt_s* dnelem = NULL;
+                sprintf(tmpstr, "%08X", devinfo.devaddr);
+                dnelem = search_dn_list(tmpstr);
+                if (dnelem != NULL) {
+                    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]Found a match devaddr: %s, prepare a downlink!\n", tmpstr);
+                    jit_result = custom_rx2dn(dnelem, &devinfo, p->count_us, TIMESTAMPED);
+                    if (jit_result == JIT_ERROR_OK) { /* Next upmsg willbe indicate if received by note */
+                        LGW_LIST_LOCK(&dn_list);
+                        LGW_LIST_REMOVE(&dn_list, dnelem, list);
+                        lgw_free(dnelem);
+                        LGW_LIST_UNLOCK(&dn_list);
+                    } else {
+                        lgw_log(LOG_ERROR, "ERROR~ [DNLK]Packet REJECTED (jit error=%d)\n", jit_result);
+                    }
+
+                } else
+                    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]NO custom downlink command for Dev %08X\n", devinfo.devaddr);
+            }
+        }
+    } // for nb_pkt loop
+
+    lgw_free(serv_ct);
+
+    pthread_mutex_lock(&mx_pthread_list_size);
+    pthread_list_size--;
+    pthread_mutex_unlock(&mx_pthread_list_size);
+
+    //gettimeofday(&end_us, NULL);
+
+    //lgw_log(LOG_DEBUG, "THREAD~>> [tid=%ld, end=%u:%u, start=%u:%u, sub=%u] (R=%d)\n", tid, end_us.tv_sec, end_us.tv_usec, start_us.tv_sec, start_us.tv_usec, timeval_sub(&start_us, &end_us), pthread_list_size);
 }
 
 static void pkt_prepare_downlink(void* arg) {
@@ -909,5 +941,59 @@ static int strcpypt(char* dest, const char* src, int* start, int size, int len)
 
     return j;
 }
+
+static void pkt_deal_up(void* arg) {
+    serv_s* serv = (serv_s*) arg;
+    lgw_log(LOG_INFO, "INFO~ [%s] Staring pkt_deal_up thread\n", serv->info.name);
+
+	while (!serv->thread.stop_sig) {
+
+		sem_wait(&serv->thread.sema);
+
+        //lgw_log(LOG_DEBUG, "THREAD~ [%s] current threads(=%d)\n", serv->info.name, pthread_list_size);
+
+        if (pthread_list_size > MAX_PTHREADS) {
+            continue;   //wait for 
+        }
+
+        //do {
+            serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
+            serv_ct->serv = serv;
+            serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
+
+            if (serv_ct->nb_pkt == 0) {
+                lgw_free(serv_ct);
+                continue;
+            }
+
+            pthread_mutex_lock(&mx_pthread_list_size);
+            pthread_list_size++;
+            pthread_mutex_unlock(&mx_pthread_list_size);
+
+            pthread_t ntid;
+
+            lgw_log(LOG_DEBUG, "DEBUG~ [%s] pkt_push_up fetch %d %s.\n", serv->info.name, serv_ct->nb_pkt, serv_ct->nb_pkt < 2 ? "packet" : "packets");
+
+            if (lgw_pthread_create(&ntid, NULL, (void *(*)(void *))thread_pkt_deal_up, (void *)serv_ct)) {
+                lgw_free(serv_ct);
+
+                pthread_mutex_lock(&mx_pthread_list_size);
+                pthread_list_size--;
+                pthread_mutex_unlock(&mx_pthread_list_size);
+
+                lgw_log(LOG_WARNING, "WARNING~ [%s] Can't create push_up pthread.\n", serv->info.name);
+            } else {
+                pthread_detach(ntid);
+            }
+
+            //if (pthread_list_size > 16)
+                //break;
+
+        //} while (GW.rxpkts_list.size > 1 && (!serv->thread.stop_sig));  
+    }
+
+    lgw_log(LOG_INFO, "INFO~ [%s] END of pkt_deal_up thread\n", serv->info.name);
+}
+
 /* --- EOF ------------------------------------------------------------------ */
 

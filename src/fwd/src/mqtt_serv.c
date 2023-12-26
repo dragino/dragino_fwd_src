@@ -245,15 +245,20 @@ static void mqtt_push_up(void* arg) {
 	while (!serv->thread.stop_sig) {
 		// wait for data to arrive
 		sem_wait(&serv->thread.sema);
+        serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
+        serv_ct->serv = serv;
 
-        nb_pkt = get_rxpkt(serv);     //only get the first rxpkt of list
-        if (nb_pkt == 0)
+        nb_pkt = serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
+
+        if (nb_pkt == 0) {
+            lgw_free(serv_ct);
             continue;
+        }
 
         lgw_log(LOG_DEBUG, "DEBUG~ [%s] mqtt_push_up fetch %d pachages.\n", serv->info.name, nb_pkt);
 
         for (i = 0; i < nb_pkt; i++) {
-            p = &serv->rxpkt[i];
+            p = &serv_ct->rxpkt[i];
             /* basic packet filtering */
             switch (p->status) {
             case STAT_CRC_OK:
@@ -282,6 +287,7 @@ static void mqtt_push_up(void* arg) {
                 lgw_log(LOG_INFO, "INFO~ [%s] send data to mqtt server succeed.\n", serv->info.name);
             }
         }
+        lgw_free(serv_ct);
     }
 
     lgw_log(LOG_INFO, "INFO~ [%s] END of mqtt_push_up thread...\n", serv->info.name);

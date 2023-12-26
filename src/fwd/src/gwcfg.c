@@ -1487,6 +1487,16 @@ static int parse_gateway_configuration(const char* conf_file) {
         }
     }
 
+    val = json_object_get_value(conf_obj, "time_ref");
+    if (json_value_get_type(val) == JSONBoolean) {
+        GW.gps.time_ref = (bool)json_value_get_boolean(val);
+        if (GW.gps.time_ref == true) {
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] time ref from GPS is enabled\n");
+        } else {
+            lgw_log(LOG_INFO, "INFO~ [LoadCFG] time ref from GPS is disabled\n");
+        }
+    }
+
     /* LBT module TTY configure(optional) */
     val = json_object_get_value(conf_obj, "lbt_tty_enabled"); /* fetch value (if possible) */
     if (json_value_get_type(val) == JSONBoolean) {
@@ -1601,16 +1611,8 @@ static int parse_gateway_configuration(const char* conf_file) {
 		for (i = 0; i < count; i++) {
             serv_entry = (serv_s*)lgw_malloc(sizeof(serv_s));
 
-            /* 在这里初始化service */
             serv_entry->list.next = NULL;
 
-            /* 在这里初始化service 的 pkts head */
-            /*
-            serv_entry->rxpkts_list->first = NULL;
-            serv_entry->rxpkts_list->last = NULL;
-            serv_entry->rxpkts_list->size = 0;
-            pthread_mutex_init(&serv_entry->rxpkts_list->lock, NULL);
-            */
             serv_entry->info.stamp = 1 << (i+1);  //PKT is the first service
 
             /* service network information */
@@ -1629,6 +1631,7 @@ static int parse_gateway_configuration(const char* conf_file) {
             serv_entry->filter.fwd_nocrc_pkt = false;
             serv_entry->filter.fport = 0;
             serv_entry->filter.devaddr = 0;
+            serv_entry->filter.nwkid = 0;
 
             serv_entry->report = NULL;
 
@@ -1681,6 +1684,8 @@ static int parse_gateway_configuration(const char* conf_file) {
 					serv_entry->info.type = semtech;
 				} else if (!strncmp(str, "ttn", 3)) {
 					serv_entry->info.type = ttn;
+				} else if (!strncmp(str, "pkt", 3)) {
+					serv_entry->info.type = pkt;
 				} else if (!strncmp(str, "mqtt", 4)) {
 					serv_entry->info.type = mqtt;
                     serv_entry->net->mqtt = (mqttinfo_s*)lgw_malloc(sizeof(mqttinfo_s));
@@ -1724,6 +1729,8 @@ static int parse_gateway_configuration(const char* conf_file) {
                 serv_entry->info.enabled = json_value_get_boolean(val);
             else 
                 serv_entry->info.enabled = true;   // 默认是开启的
+
+			if (serv_entry->info.type != pkt) {
 
 			str = json_object_get_string(serv_obj, "server_address");
             if (str != NULL) {
@@ -1776,6 +1783,8 @@ static int parse_gateway_configuration(const char* conf_file) {
                 lgw_log(LOG_INFO, "INFO~ [LoadCFG][%s] stat_interval is configure to \"%d\"\n", serv_entry->info.name, serv_entry->report->stat_interval);
             }
 
+            } //end of not as pkt type
+
             val = json_object_get_value(serv_obj, "forward_crc_valid");
             if (json_value_get_type(val) == JSONBoolean) {
                 serv_entry->filter.fwd_valid_pkt = (bool)json_value_get_boolean(val);
@@ -1813,6 +1822,18 @@ static int parse_gateway_configuration(const char* conf_file) {
                 else
                     serv_entry->filter.devaddr = NOFILTER;
                 lgw_log(LOG_INFO, "INFO~ [LoadCFG][%s] packets received with a devaddr filter, level(%d)\n", serv_entry->info.name, serv_entry->filter.devaddr);
+            } 
+
+            val = json_object_get_value(serv_obj, "nwkid_filter");
+            if (val != NULL) {
+                try = (uint8_t)json_value_get_number(val);
+                if (try == 1)
+                    serv_entry->filter.nwkid = INCLUDE;
+                else if (try == 2)
+                    serv_entry->filter.nwkid = EXCLUDE;
+                else
+                    serv_entry->filter.nwkid = NOFILTER;
+                lgw_log(LOG_INFO, "INFO~ [LoadCFG][%s] packets received with a nwkid filter, level(%d)\n", serv_entry->info.name, serv_entry->filter.nwkid);
             } 
 
             LGW_LIST_INSERT_TAIL(&GW.serv_list, serv_entry, list);

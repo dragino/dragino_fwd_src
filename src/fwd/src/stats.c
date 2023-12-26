@@ -99,7 +99,6 @@ static void semtech_report(serv_s *serv) {
 	float dw_ack_ratio;
 
 	/* access upstream statistics, copy and reset them */
-	pthread_mutex_lock(&(serv->report->mx_report));
 	cp_nb_rx_rcv = serv->report->stat_up.meas_nb_rx_rcv;
 	cp_nb_rx_ok = serv->report->stat_up.meas_nb_rx_ok;
 	cp_nb_rx_bad = serv->report->stat_up.meas_nb_rx_bad;
@@ -113,6 +112,7 @@ static void semtech_report(serv_s *serv) {
 	cp_up_dgram_sent = serv->report->stat_up.meas_up_dgram_sent;
 	cp_up_ack_rcv = serv->report->stat_up.meas_up_ack_rcv;
 
+	pthread_mutex_lock(&(serv->report->mx_report));
 	serv->report->stat_up.meas_nb_rx_rcv = 0;
 	serv->report->stat_up.meas_nb_rx_ok = 0;
 	serv->report->stat_up.meas_nb_rx_bad = 0;
@@ -147,7 +147,6 @@ static void semtech_report(serv_s *serv) {
 	}
 
 	/* access downstream statistics, copy and reset them */
-	pthread_mutex_lock(&serv->report->mx_report);
 
 	cp_dw_pull_sent  = serv->report->stat_down.meas_dw_pull_sent;
 	cp_dw_ack_rcv = serv->report->stat_down.meas_dw_ack_rcv;
@@ -169,6 +168,7 @@ static void semtech_report(serv_s *serv) {
 	cp_nb_beacon_sent += serv->report->meas_nb_beacon_sent;	
 	cp_nb_beacon_rejected += serv->report->meas_nb_beacon_rejected;	
 
+	pthread_mutex_lock(&serv->report->mx_report);
 	serv->report->stat_down.meas_dw_network_byte = 0;
 	serv->report->stat_down.meas_dw_payload_byte = 0;
 	serv->report->stat_down.meas_nb_tx_ok = 0;
@@ -355,16 +355,15 @@ static void semtech_report(serv_s *serv) {
 		json_object_dotset_number(root_object, "current.down_beacon_packets_send", cp_nb_beacon_sent);
 		json_object_dotset_number(root_object, "current.down_beacon_packets_rejected", cp_nb_beacon_rejected);
 
-		pthread_mutex_lock(&serv->report->mx_report);
         memset(serv->report->status_report, 0, sizeof(serv->report->status_report));
         json_serialize_to_buffer(root_value, serv->report->status_report, STATUS_SIZE);
+		pthread_mutex_lock(&serv->report->mx_report);
 		serv->report->report_ready = true;
 		pthread_mutex_unlock(&serv->report->mx_report);
 		json_value_free(root_value);
     }
 
 	if (semtech_format) {
-		pthread_mutex_lock(&serv->report->mx_report);
         memset(serv->report->status_report, 0, sizeof(serv->report->status_report));
 		if ((GW.gps.gps_enabled && coord_ok) || GW.gps.gps_fake_enable) {
 			snprintf(serv->report->status_report, STATUS_SIZE,
@@ -383,6 +382,7 @@ static void semtech_report(serv_s *serv) {
                      GW.info.email, GW.info.description);
 		}
 		lgw_log(LOG_REPORT, "#[%s] Semtech status report ready. \n", serv->info.name);
+		pthread_mutex_lock(&serv->report->mx_report);
 		serv->report->report_ready = true;
 		pthread_mutex_unlock(&serv->report->mx_report);
         //lgw_db_put("/fwd/pkts/report", timestr, serv->report->status_report);

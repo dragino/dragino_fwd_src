@@ -97,6 +97,10 @@ uint32_t cur_hal_time = 0;
 // initialize GW
 INIT_GW;
 
+// initialize pthread list
+//struct pthread_list pkt_pthread_list = LGW_LIST_HEAD_INIT_VALUE;
+
+
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
 void stop_clean_service(void);
@@ -414,24 +418,23 @@ void print_tx_status(uint8_t tx_status) {
 	}
 }
 
-int get_rxpkt(serv_s* serv) {
+int get_rxpkt(serv_ct_s* serv_ct) {
     int ret = 0;
     rxpkts_s* rxpkt_entry;
+    serv_s* serv = serv_ct->serv;
 
     LGW_LIST_LOCK(&GW.rxpkts_list);
     LGW_LIST_TRAVERSE(&GW.rxpkts_list, rxpkt_entry, list) {
-        ret = 0;
-        if (NULL == rxpkt_entry)
-            continue;
+
         if (serv->info.stamp == (serv->info.stamp & rxpkt_entry->stamps))
             continue;
         
-        //pthread_mutex_lock(&GW.mx_bind_lock);
         rxpkt_entry->stamps |= serv->info.stamp;
+        memcpy(serv_ct->rxpkt, rxpkt_entry->rxpkt, sizeof(struct lgw_pkt_rx_s) * rxpkt_entry->nb_pkt);
+        //pthread_mutex_lock(&GW.mx_bind_lock);
         rxpkt_entry->bind--;
         //pthread_mutex_unlock(&GW.mx_bind_lock);
-        memset(serv->rxpkt, 0, sizeof(serv->rxpkt));
-        memcpy(serv->rxpkt, rxpkt_entry->rxpkt, sizeof(struct lgw_pkt_rx_s) * rxpkt_entry->nb_pkt);
+        //memset(serv->rxpkt, 0, sizeof(servct->rxpkt));
         ret = rxpkt_entry->nb_pkt;
         break;
     }
@@ -506,6 +509,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* 创建一个默认的service，用来基本包处理：包解析、包解码、包保存、自定义下发等 */
+    /*
     serv_entry = (serv_s*)lgw_malloc(sizeof(serv_s));
     if (NULL == serv_entry) {
         lgw_log(LOG_ERROR, "[main] ERROR~ Can't allocate pkt service, EXIT!\n");
@@ -519,15 +523,11 @@ int main(int argc, char *argv[]) {
     serv_entry->state.live = false;
 
     serv_entry->info.type = pkt;
-    serv_entry->info.stamp = 1;     //将PKT服务标记为 1 
+    serv_entry->info.stamp = 1;     
     strcpy(serv_entry->info.name, "PKT_SERV");;
     serv_entry->filter.fwd_valid_pkt = true;
     serv_entry->filter.fwd_error_pkt = false;
     serv_entry->filter.fwd_nocrc_pkt = false;
-    //serv_entry->rxpkts_list->first = NULL;
-    //serv_entry->rxpkts_list->last = NULL;
-    //serv_entry->rxpkts_list->size = 0;
-    //pthread_mutex_init(&serv_entry->rxpkts_list->lock, NULL);
 
     if (sem_init(&serv_entry->thread.sema, 0, 0) != 0) {
         lgw_log(LOG_ERROR, "[main] ERROR~ initializes the unnamed semaphore, EXIT!\n");
@@ -538,6 +538,7 @@ int main(int argc, char *argv[]) {
     serv_entry->thread.stop_sig = false;
 
     LGW_LIST_INSERT_TAIL(&GW.serv_list, serv_entry, list);
+    */
 
     if (access(GW.hal.confs.gwcfg, R_OK) == 0 && access(GW.hal.confs.sxcfg, R_OK) == 0) { /* if there is a global conf, parse it  */
         if (parsecfg()) {
@@ -555,12 +556,11 @@ int main(int argc, char *argv[]) {
         if (i != LGW_GPS_SUCCESS) {
             lgw_log(LOG_WARNING, "WARNING~ [main] impossible to open %s for GPS sync (check permissions)\n", GW.gps.gps_tty_path);
             GW.gps.gps_enabled = false;
-            GW.gps.gps_ref_valid = false;
         } else {
             lgw_log(LOG_INFO, "INFO~ [main] TTY port %s open for GPS synchronization\n", GW.gps.gps_tty_path);
             GW.gps.gps_enabled = true;
-            GW.gps.gps_ref_valid = false;
         }
+        GW.gps.gps_ref_valid = false;
     }
 
     if (GW.lbt.lbt_tty_enabled) {
@@ -658,10 +658,13 @@ int main(int argc, char *argv[]) {
 			lgw_log(LOG_ERROR, "ERROR~ [main] impossible to create GPS thread\n");
         else
             lgw_db_put("thread", "thread_gps", "running");
-		if (pthread_create(&thrid_valid, NULL, (void *(*)(void *))thread_valid, NULL))
-			lgw_log(LOG_ERROR, "ERROR~ [main] impossible to create validation thread\n");
-        else
-            lgw_db_put("thread", "thread_valid", "running");
+
+        if (GW.gps.time_ref == true) {
+            if (pthread_create(&thrid_valid, NULL, (void *(*)(void *))thread_valid, NULL))
+                lgw_log(LOG_ERROR, "ERROR~ [main] impossible to create validation thread\n");
+            else
+                lgw_db_put("thread", "thread_valid", "running");
+        }
 	}
 
 	/* spawn thread for watchdog */
@@ -722,7 +725,8 @@ int main(int argc, char *argv[]) {
 
 	if (GW.gps.gps_enabled == true) {
 		pthread_cancel(thrid_gps);	        /* don't wait for GPS thread */
-		pthread_cancel(thrid_valid);	    /* don't wait for validation thread */
+        if (GW.gps.time_ref == true)
+		    pthread_cancel(thrid_valid);	    /* don't wait for validation thread */
         i = lgw_gps_disable(GW.gps.gps_tty_fd);
         if (i == LGW_HAL_SUCCESS) {
             lgw_log(LOG_INFO, "INFO~ GPS closed successfully\n");
@@ -827,7 +831,7 @@ static void thread_up(void) {
         memcpy(rxpkt_entry->rxpkt, rxpkt, sizeof(struct lgw_pkt_rx_s) * nb_pkt);
 
         LGW_LIST_LOCK(&GW.rxpkts_list);
-        LGW_LIST_INSERT_HEAD(&GW.rxpkts_list, rxpkt_entry, list);
+        LGW_LIST_INSERT_TAIL(&GW.rxpkts_list, rxpkt_entry, list);
         LGW_LIST_UNLOCK(&GW.rxpkts_list);
 
 	    lgw_log(LOG_DEBUG, "DEBUG~ [main-up] Size of package list is %d\n", GW.rxpkts_list.size);
@@ -846,7 +850,8 @@ static void thread_up(void) {
 /* --- THREAD : recycle rxpkts --------------------- */
 
 static void thread_rxpkt_recycle(void) {
-    int time_ms = DEFAULT_FETCH_SLEEP_MS * DEFAULT_RXPKTS_LIST_SIZE;
+    int time_ms = 500;  // every 500ms
+    int deal = 0;
 
     rxpkts_s* rxpkt_entry = NULL;
     serv_s* serv_entry = NULL;
@@ -865,29 +870,39 @@ static void thread_rxpkt_recycle(void) {
         }
 
         if (GW.rxpkts_list.size > DEFAULT_RXPKTS_LIST_SIZE) {   
-	        lgw_log(LOG_DEBUG, "DEBUG~ [Recycle-service] running packages recycle thread, total(=%d)\n", GW.rxpkts_list.size);
+	        //lgw_log(LOG_DEBUG, "DEBUG~ [Recycle-service] running packages recycle thread, total(=%d)\n", GW.rxpkts_list.size);
+
+            deal = 0;
 
             LGW_LIST_LOCK(&GW.rxpkts_list);
             LGW_LIST_TRAVERSE_SAFE_BEGIN(&GW.rxpkts_list, rxpkt_entry, list) {
-                if ((cur_hal_time - rxpkt_entry->entry_us > 3000000) || (rxpkt_entry->bind < 1)) {
+                // 30s ?
+                if ((cur_hal_time - rxpkt_entry->entry_us > 30000000) || (rxpkt_entry->bind < 1)) {
                     LGW_LIST_REMOVE_CURRENT(list);
                     lgw_free(rxpkt_entry);
                     GW.rxpkts_list.size--;
+                    deal++;
                 }
             }
             LGW_LIST_TRAVERSE_SAFE_END;
             LGW_LIST_UNLOCK(&GW.rxpkts_list);
+	        lgw_log(LOG_DEBUG, "DEBUG~ [Recycle-service] packages recycle thread, deal(=%d), remain(=%d)\n", deal, GW.rxpkts_list.size);
 	    }
 
         if (GW.rxpkts_list.size > MAX_RXPKTS_LIST_SIZE) {   
+            deal = 0;
             LGW_LIST_LOCK(&GW.rxpkts_list);
             LGW_LIST_TRAVERSE_SAFE_BEGIN(&GW.rxpkts_list, rxpkt_entry, list) {
-                LGW_LIST_REMOVE_CURRENT(list);
-                lgw_free(rxpkt_entry);
-                GW.rxpkts_list.size--;
+                if ((cur_hal_time - rxpkt_entry->entry_us > 12000000) || (rxpkt_entry->bind < 1)) {
+                    LGW_LIST_REMOVE_CURRENT(list);
+                    lgw_free(rxpkt_entry);
+                    GW.rxpkts_list.size--;
+                    deal++;
+                }
             }
             LGW_LIST_TRAVERSE_SAFE_END;
             LGW_LIST_UNLOCK(&GW.rxpkts_list);
+	        lgw_log(LOG_DEBUG, "DEBUG~ [Recycle-service] remove entry_us > 12s, deal(=%d), remain(=%d)\n", deal, GW.rxpkts_list.size);
         }
     }
 
