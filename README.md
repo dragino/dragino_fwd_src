@@ -198,3 +198,20 @@ usb module can only make 60ms scan loop.
 ## 2023/06/19  fwd-2.8.8
 1. net status records in sqlite scheme (config with status_index)
 2. sqlite scheme optimize (fix: is locked message)
+
+## 2023/10/10  fwd-2.8.9
+1. add filter of fwd by nwkid (nwkid if prefix of devaddr)
+
+## 2023/10/18  fwd-2.9.0
+1. add config time_ref for gps, if true rxpkt time will reference from gps
+
+## 2023/12/08  fwd-3.0.0
+1. add pthread list for control pkt decode
+2. change rxpkt list for process simultan
+3. add struct 'serv_ct' pthread data
+
+## 2023/12/08  fwd-3.0.1
+1. configure pkt service as other service (local_conf.json)
+
+## 2024/02/26  fwd-3.0.2
+1. fix counter of packages  (stats.c)

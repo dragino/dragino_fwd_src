@@ -48,6 +48,7 @@ typedef struct _dn_pkt {
     char devaddr[16];
     char txmode[8];
     char pdformat[8];
+    uint8_t relay;     
     uint8_t payload[512];
     uint32_t txfreq;
     uint8_t *fopt;

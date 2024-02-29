@@ -1013,7 +1013,7 @@ static void thread_jit(void) {
                             pthread_mutex_lock(&GW.log.mx_report);
                             GW.log.stat_dw.meas_nb_tx_ok += 1;
                             pthread_mutex_unlock(&GW.log.mx_report);
-                            lgw_log(LOG_INFO, "INFO~ [JIT] send done on rf_chain %d in count_us=%u with freq=%u, sf=%u\n", i, pkt.count_us, pkt.freq_hz, pkt.datarate);
+                            lgw_log(LOG_INFO, "INFO~ [JIT] send done on rf_chain %d in count_us=%u with freq=%u, SF%u\n", i, pkt.count_us, pkt.freq_hz, pkt.datarate);
                         }
                     } else {
                         lgw_log(LOG_ERROR, "ERROR~ [JIT] jit_dequeue failed on rf_chain %d with %d\n", i, jit_result);

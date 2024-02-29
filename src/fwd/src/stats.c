@@ -99,6 +99,8 @@ static void semtech_report(serv_s *serv) {
 	float dw_ack_ratio;
 
 	/* access upstream statistics, copy and reset them */
+	pthread_mutex_lock(&(serv->report->mx_report));
+
 	cp_nb_rx_rcv = serv->report->stat_up.meas_nb_rx_rcv;
 	cp_nb_rx_ok = serv->report->stat_up.meas_nb_rx_ok;
 	cp_nb_rx_bad = serv->report->stat_up.meas_nb_rx_bad;
@@ -112,7 +114,6 @@ static void semtech_report(serv_s *serv) {
 	cp_up_dgram_sent = serv->report->stat_up.meas_up_dgram_sent;
 	cp_up_ack_rcv = serv->report->stat_up.meas_up_ack_rcv;
 
-	pthread_mutex_lock(&(serv->report->mx_report));
 	serv->report->stat_up.meas_nb_rx_rcv = 0;
 	serv->report->stat_up.meas_nb_rx_ok = 0;
 	serv->report->stat_up.meas_nb_rx_bad = 0;
@@ -120,10 +121,13 @@ static void semtech_report(serv_s *serv) {
 	serv->report->stat_up.meas_up_pkt_fwd = 0;
 	serv->report->stat_up.meas_up_network_byte = 0;
 	serv->report->stat_up.meas_up_payload_byte = 0;
+	serv->report->stat_up.meas_up_dgram_sent = 0;
+	serv->report->stat_up.meas_up_ack_rcv = 0;
 
 	/* get timestamp for statistics (must be done inside the lock) */
 	current_time = time(NULL);
 	serv->state.stall_time = (int)(current_time - serv->state.contact);
+
 	pthread_mutex_unlock(&serv->report->mx_report);
 
 	/* Do the math */
@@ -148,6 +152,8 @@ static void semtech_report(serv_s *serv) {
 
 	/* access downstream statistics, copy and reset them */
 
+	pthread_mutex_lock(&serv->report->mx_report);
+
 	cp_dw_pull_sent  = serv->report->stat_down.meas_dw_pull_sent;
 	cp_dw_ack_rcv = serv->report->stat_down.meas_dw_ack_rcv;
 	cp_dw_dgram_rcv = serv->report->stat_down.meas_dw_dgram_rcv;
@@ -168,7 +174,12 @@ static void semtech_report(serv_s *serv) {
 	cp_nb_beacon_sent += serv->report->meas_nb_beacon_sent;	
 	cp_nb_beacon_rejected += serv->report->meas_nb_beacon_rejected;	
 
-	pthread_mutex_lock(&serv->report->mx_report);
+	serv->report->stat_down.meas_dw_pull_sent = 0;
+	serv->report->stat_down.meas_dw_ack_rcv = 0;
+
+	serv->report->stat_down.meas_dw_dgram_rcv = 0;
+	serv->report->stat_down.meas_dw_dgram_acp = 0;
+
 	serv->report->stat_down.meas_dw_network_byte = 0;
 	serv->report->stat_down.meas_dw_payload_byte = 0;
 	serv->report->stat_down.meas_nb_tx_ok = 0;
@@ -402,7 +413,7 @@ void report_start() {
                 semtech_report(serv_entry);
                 break;
             default:
-	            lgw_log(LOG_INFO, "\n################[%s] no report of this service ###############\n", serv_entry->info.name);
+	            lgw_log(LOG_DEBUG, "\n################[%s] no report of this service ###############\n", serv_entry->info.name);
                 break;
         }
     }

@@ -1328,6 +1328,7 @@ static void semtech_pull_down(void* arg) {
                 }
                 pthread_mutex_lock(&serv->report->mx_report);
                 serv->report->stat_down.meas_nb_tx_requested += 1;
+                serv->report->stat_down.meas_nb_tx_ok += 1;
                 pthread_mutex_unlock(&serv->report->mx_report);
             }
 

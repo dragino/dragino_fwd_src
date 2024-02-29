@@ -124,6 +124,9 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
 
     txpkt.invert_pol = true;
 
+    if (dnelem->relay > 0)
+        txpkt.invert_pol = false;
+
     txpkt.preamble = STD_LORA_PREAMB;
 
     txpkt.tx_mode = txmode;
@@ -166,7 +169,7 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
     get_concentrator_time(&current_concentrator_time);
 #endif
     jit_result = jit_enqueue(&GW.tx.jit_queue[txpkt.rf_chain], current_concentrator_time, &txpkt, downlink_type);
-    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK] DNRX2-> tmst:%u, freq:%u, size:%u, SF%u\n", txpkt.count_us, txpkt.freq_hz, txpkt.size, txpkt.datarate);
+    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK] DNRX2-> tmst:%u, freq:%u, size:%u, SF%u, ipol:%s\n", txpkt.count_us, txpkt.freq_hz, txpkt.size, txpkt.datarate, txpkt.invert_pol ? "true" : "false");
     return jit_result;
 }
 
@@ -644,6 +647,7 @@ static void pkt_prepare_downlink(void* arg) {
                 entry->txbw = 0; 
                 entry->txdr = 0; 
                 entry->txfreq = 0; 
+                entry->relay = 0; 
                 entry->rxwindow = 2; 
                 entry->txport = DEFAULT_DOWN_FPORT; 
                 entry->ftype = FRAME_TYPE_DATA_UNCONFIRMED_DOWN;        
@@ -708,7 +712,6 @@ static void pkt_prepare_downlink(void* arg) {
                     else 
                         entry->txdr = 0; 
                 } 
-
                 /** 8. tx frequency **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     i = sscanf(swap_str, "%u", &entry->txfreq);
@@ -737,7 +740,7 @@ static void pkt_prepare_downlink(void* arg) {
                         entry->optlen = 0;
                 } 
 
-                /** 12. t!x opts **/
+                /** 12. tx opts **/
                 if ((j = strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str))) > 0) {
                     if (entry->optlen > 0 && (j < 32)) {
                         hex2str(swap_str, hexopt, j);
@@ -750,6 +753,11 @@ static void pkt_prepare_downlink(void* arg) {
                         entry->fopt = NULL;
                     }
                 } 
+
+                /** 13. relay **/
+                if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
+                    entry->relay = 1;
+                }
 
                 /*******************************************************************/
                 /** End of prepare customer donwlink constractor **/
@@ -818,7 +826,8 @@ static void pkt_prepare_downlink(void* arg) {
                 }
 #endif
 
-                lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]devaddr:%s, txmode:%s, pdfm:%s, size:%d, freq:%u, bw:%u, dr:%u\n", entry->devaddr, entry->txmode, entry->pdformat, entry->psize, entry->txfreq, bw_display, entry->txdr);
+                lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]devaddr:%s, txmode:%s, pdfm:%s, size:%d, freq:%u, bw:%u, dr:%u, relay:%s\n", entry->devaddr, entry->txmode, entry->pdformat, entry->psize, entry->txfreq, bw_display, entry->txdr, entry->relay ? "true" : "false");
+
                 lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]payload:\"%s\"\n", entry->payload); 
 
                 if (strstr(entry->txmode, "imme") != NULL) {
