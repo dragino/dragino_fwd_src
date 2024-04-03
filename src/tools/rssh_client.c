@@ -508,7 +508,8 @@ static int init_sock(const char *addr, const char *port, const void *timeout, in
 	/* look for server address w/ upstream port */
 	i = getaddrinfo(addr, port, &hints, &result);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_sock] getaddrinfo on address %s (PORT %s) returned %s\n", addr, port, gai_strerror(i));
+		lgw_log(LOG_ERROR, "ERROR~ [NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", addr, port, gai_strerror(i));
+	    freeaddrinfo(result);
 		return -1;
 	}
 
@@ -522,13 +523,14 @@ static int init_sock(const char *addr, const char *port, const void *timeout, in
 	}
 
 	if (q == NULL) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_sock] failed to open socket to any of server %s addresses (port %s)\n", addr, port);
+		lgw_log(LOG_ERROR, "ERROR~ [NETWORK] failed to open socket to any of server %s addresses (port %s)\n", addr, port);
 		i = 1;
 		for (q = result; q != NULL; q = q->ai_next) {
 			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name,
 						port_name, sizeof port_name, NI_NUMERICHOST);
 			++i;
 		}
+    	freeaddrinfo(result);
 
 		return -1;
 	}
@@ -536,14 +538,15 @@ static int init_sock(const char *addr, const char *port, const void *timeout, in
 	/* connect so we can send/receive packet with the server only */
 	i = connect(sockfd, q->ai_addr, q->ai_addrlen);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_socke] connect returned %s\n", strerror(errno));
+		lgw_log(LOG_ERROR, "WARM~ [NETWORK] connecting... %s\n", strerror(errno));
+	    freeaddrinfo(result);
 		return -1;
 	}
 
 	freeaddrinfo(result);
 
 	if ((setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size)) != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_sock] setsockopt returned %s\n", strerror(errno));
+		lgw_log(LOG_ERROR, "ERROR~ [NETWORK] setsockopt returned %s\n", strerror(errno));
 		return -1;
 	}
 

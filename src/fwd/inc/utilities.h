@@ -160,10 +160,18 @@ void str2hex(uint8_t* dest, char* src, int len);
 /*!
  * \brief convert the strings to hex format
  *
- * \param [IN] dest
- * \param [out] src Pointer to a variable where the dest convert to
+ * \param [IN] hex
+ * \param [out] str Pointer to a variable where the dest convert to
  */
 void hex2str(uint8_t* hex, uint8_t* str, uint8_t len);
+
+/*!
+ * \brief convert the binary to hex format
+ *
+ * \param [IN] in
+ * \param [out] out Pointer to a variable where the dest convert to
+ */
+void bin2hex(char *in, char *out, int len);
 
 /*!
  * \brief management pthread funciton 
@@ -282,7 +290,8 @@ static force_inline int _lgw_strlen_zero(const char *s, const char *file, const 
         return 1;
     }
     if (!strcmp(s, "(null)")) {
-        lgw_log(LOG_WARNING, file, line, function, "Possible programming error: \"(null)\" is not NULL!\n");
+        return 1;
+        //lgw_log(LOG_WARNING, file, line, function, "Possible programming error: \"(null)\" is not NULL!\n");
     }
     return 0;
 }
@@ -293,5 +302,12 @@ static force_inline int attribute_pure lgw_strlen_zero(const char *s)
     return (!s || (*s == '\0'));
 }
 #endif
+
+/*!
+ * \brief close filed
+ *
+ */
+
+int Close(int fildes);
 
 #endif // __UTILITIES_H__

@@ -21,27 +21,17 @@
 
 /*!
  * \file
+ * \brief Persistant data storage 
  */
 
-#ifndef _GWPKT_PROTO_H
-#define _GWPKT_PROTO_H
+#ifndef __DELAY_PROTO_H
+#define __DELAY_PROTO_H
 
-/*!下发的数据结据，下发的格式是： devaddr, txmode, payload format, payload
-* txmode: time, imme
-* format: txt, hex
-**/
+#define DELAY_PKTS_MAX      64
 
-#define DEFAULT_PAYLOAD_SIZE        256
-#define DEFAULT_DOWN_FPORT          2
+int delay_pkt_get(int max, struct lgw_pkt_rx_s *pkt_data); 
 
-#define DNPATH                      "/var/iot/push" 
-
-#define UP                          0
-#define DOWN                        1
-
-#define FCNT_GAP                    8
-
-int pkt_start(serv_s*);
-void pkt_stop(serv_s*);
+int delay_start(serv_s* serv);
+int delay_stop(serv_s* serv);
 
 #endif						

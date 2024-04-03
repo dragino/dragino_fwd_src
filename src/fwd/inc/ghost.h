@@ -24,11 +24,8 @@
  * \brief lora packages simulation
  */
 
-
-#ifndef _GHOST_H_
-#define _GHOST_H_
-
-#include "fwd.h"
+#ifndef __GHOST_H_
+#define __GHOST_H_
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS AND FIELDS ------------------------------------------ */
@@ -47,7 +44,7 @@
 #define GHST_RX_BUFFSIZE     240	/* Size of buffer held for receiving packets  */
 #define GHST_TX_BUFFSIZE     320	/* Size of buffer held for sending packets  */
 
-#define NB_PKT                12
+#define GHST_NB_PKT                12
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS PROTOTYPES ------------------------------------------ */

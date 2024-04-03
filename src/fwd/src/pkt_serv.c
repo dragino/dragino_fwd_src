@@ -1,4 +1,4 @@
-/*
+/*!>
  *  ____  ____      _    ____ ___ _   _  ___  
  *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
  *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
@@ -19,7 +19,7 @@
  *
  */
 
-/*!
+/*!>!
  * \file
  * \brief 
  *  Description:
@@ -50,6 +50,27 @@
 #include "mac-header-decode.h"
 
 DECLARE_GW;
+
+typedef struct _dn_pkt {
+	LGW_LIST_ENTRY(_dn_pkt) list;
+    char devaddr[16];
+    char txmode[8];
+    char pdformat[8];
+    uint8_t relay;     
+    uint8_t payload[512];
+    uint32_t txfreq;
+    uint8_t *fopt;
+    uint8_t ftype;
+    uint8_t mode;
+    uint8_t psize;
+    uint8_t txdr;
+    uint8_t txbw;
+    uint8_t txpw;
+    uint8_t rxwindow;
+    uint8_t txport;
+    uint8_t optlen;
+} dn_pkt_s;
+
 //extern struct pthread_list pkt_pthread_list;
 
 static uint8_t rx2bw;
@@ -78,7 +99,7 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
 
     uint32_t dwfcnt = 1;
 
-    uint8_t payload_en[DEFAULT_PAYLOAD_SIZE] = {'\0'};  /* data which have decrypted */
+    uint8_t payload_en[DEFAULT_PAYLOAD_SIZE] = {'\0'};  /*!> data which have decrypted */
     struct lgw_pkt_tx_s txpkt;
 
     enum jit_error_e jit_result = JIT_ERROR_OK;
@@ -90,11 +111,6 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
         txpkt.modulation = dnelem->mode;
     else
         txpkt.modulation = MOD_LORA;
-
-    if (dnelem->rxwindow > 1)
-        txpkt.count_us = us + 2000000UL; /* rx2 window plus 2s */
-    else
-        txpkt.count_us = us + 1000000UL; /* rx1 window plus 1s */
 
     txpkt.no_crc = true;
 
@@ -124,9 +140,6 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
 
     txpkt.invert_pol = true;
 
-    if (dnelem->relay > 0)
-        txpkt.invert_pol = false;
-
     txpkt.preamble = STD_LORA_PREAMB;
 
     txpkt.tx_mode = txmode;
@@ -136,30 +149,35 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
     else
         downlink_type = JIT_PKT_TYPE_DOWNLINK_CLASS_C;
 
-    /* 这个key重启将会删除, 下发的计数器 */
-    sprintf(db_family, "/downlink/%08X", devinfo->devaddr);
-    if (lgw_db_get(db_family, "fcnt", tmpstr, sizeof(tmpstr)) == -1) {
-        lgw_db_put(db_family, "fcnt", "1");
-    } else { 
-        dwfcnt = atol(tmpstr);
-        sprintf(tmpstr, "%u", dwfcnt + 1);
-        lgw_db_put(db_family, "fcnt", tmpstr);
+    if (!dnelem->relay) {
+        if (dnelem->rxwindow > 1)
+            txpkt.count_us = us + 2000000UL; /*!> rx2 window plus 2s */
+        else
+            txpkt.count_us = us + 1000000UL; /*!> rx1 window plus 1s */
+        /*!> 这个key重启将会删除, 下发的计数器 */
+        sprintf(db_family, "/downlink/%08X", devinfo->devaddr);
+        if (lgw_db_get(db_family, "fcnt", tmpstr, sizeof(tmpstr)) == -1) {
+            lgw_db_put(db_family, "fcnt", "1");
+        } else { 
+            dwfcnt = atol(tmpstr);
+            sprintf(tmpstr, "%u", dwfcnt + 1);
+            lgw_db_put(db_family, "fcnt", tmpstr);
+        }
+
+        /*!> prepare MAC message */
+        lgw_memset(payload_en, '\0', sizeof(payload_en));
+
+        prepare_frame(dnelem, devinfo, dwfcnt++, payload_en, &fsize);
+
+        lgw_memcpy(txpkt.payload, payload_en, fsize);
+
+        txpkt.size = fsize;
+
+    } else { // G2G testing  TODO! ////
+        txpkt.count_us = us + 1000000UL; /*!> change to rx2 window */
+        lgw_memcpy(txpkt.payload, dnelem->payload, dnelem->psize);
+        txpkt.size = dnelem->psize;
     }
-
-    /* prepare MAC message */
-    lgw_memset(payload_en, '\0', sizeof(payload_en));
-
-    prepare_frame(dnelem, devinfo, dwfcnt++, payload_en, &fsize);
-
-    lgw_memcpy(txpkt.payload, payload_en, fsize);
-
-    txpkt.size = fsize;
-
-    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK] TX(%d):", fsize);
-    for (i = 0; i < fsize; ++i) {
-        lgw_log(LOG_DEBUG, "%02X", payload_en[i]);
-    }
-    lgw_log(LOG_DEBUG, "\n");
 
 #ifdef SX1302MOD
     pthread_mutex_lock(&GW.hal.mx_concent);
@@ -169,7 +187,12 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
     get_concentrator_time(&current_concentrator_time);
 #endif
     jit_result = jit_enqueue(&GW.tx.jit_queue[txpkt.rf_chain], current_concentrator_time, &txpkt, downlink_type);
-    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK] DNRX2-> tmst:%u, freq:%u, size:%u, SF%u, ipol:%s\n", txpkt.count_us, txpkt.freq_hz, txpkt.size, txpkt.datarate, txpkt.invert_pol ? "true" : "false");
+    lgw_log(LOG_DEBUG, "%s[DNLK] DNRX2-> tmst=%u, freq=%u, size=%u, BW%uSF%u, ipol=%s\n", DEBUGMSG, txpkt.count_us, txpkt.freq_hz, txpkt.size, txpkt.bandwidth, txpkt.datarate, txpkt.invert_pol ? "true" : "false");
+    lgw_log(LOG_DEBUG, "%s[DNLK][PAYLOAD]####################################################\n", DEBUGMSG);
+    for (i = 0; i < txpkt.size; i++) {
+        lgw_log(LOG_DEBUG, "%02x", txpkt.payload[i]);
+    }
+    lgw_log(LOG_DEBUG, "\n%s[DNLK][PAYLOAD]####################################################\n", DEBUGMSG);
     return jit_result;
 }
 
@@ -181,35 +204,35 @@ static void prepare_frame(dn_pkt_s* dnelem, devinfo_s* devinfo, uint32_t downcnt
 	LoRaMacHeader_t hdr;
 	LoRaMacFrameCtrl_t fctrl;
 
-	/*MHDR*/
+	/*!>MHDR*/
 	hdr.Value = 0;
 	hdr.Bits.MType = dnelem->ftype;
 	frame[index] = hdr.Value;
 
-	/*DevAddr*/
+	/*!>DevAddr*/
 	frame[++index] = devinfo->devaddr&0xFF;
 	frame[++index] = (devinfo->devaddr>>8)&0xFF;
 	frame[++index] = (devinfo->devaddr>>16)&0xFF;
 	frame[++index] = (devinfo->devaddr>>24)&0xFF;
 
-	/*FCtrl*/
+	/*!>FCtrl*/
 	fctrl.Value = 0;
 	if (dnelem->ftype == FRAME_TYPE_DATA_UNCONFIRMED_DOWN) {
 		fctrl.Bits.Ack = 1;
 	}
 	fctrl.Bits.Adr = 1;
 
-	/*FOptsLen*/
+	/*!>FOptsLen*/
     if (dnelem->optlen && (NULL != dnelem->fopt)) 
 	    fctrl.Bits.FOptsLen = dnelem->optlen;
 
 	frame[++index] = fctrl.Value;
 
-	/*FCnt*/
+	/*!>FCnt*/
 	frame[++index] = (downcnt)&0xFF;
 	frame[++index] = (downcnt>>8)&0xFF;
 
-	/*FOpts*/
+	/*!>FOpts*/
     if (dnelem->optlen && (NULL != dnelem->fopt)) {
 	    ++index;
         lgw_memcpy(frame + index, dnelem->fopt, dnelem->optlen);
@@ -217,10 +240,10 @@ static void prepare_frame(dn_pkt_s* dnelem, devinfo_s* devinfo, uint32_t downcnt
 	    index = index + dnelem->optlen - 1;
     }
 
-	/*Fport*/
+	/*!>Fport*/
 	frame[++index] = dnelem->txport&0xFF;
 
-	/*encrypt the payload*/
+	/*!>encrypt the payload*/
 	encrypt_payload = lgw_malloc(sizeof(uint8_t) * dnelem->psize);
 	LoRaMacPayloadEncrypt(dnelem->payload, dnelem->psize, (dnelem->txport == 0) ? devinfo->nwkskey : devinfo->appskey, devinfo->devaddr, DOWN, downcnt, encrypt_payload);
 	++index;
@@ -228,9 +251,9 @@ static void prepare_frame(dn_pkt_s* dnelem, devinfo_s* devinfo, uint32_t downcnt
 	lgw_free(encrypt_payload);
 	index += dnelem->psize;
 
-	/*calculate the mic*/
+	/*!>calculate the mic*/
 	LoRaMacComputeMic(frame, index, devinfo->nwkskey, devinfo->devaddr, DOWN, downcnt, &mic);
-    //printf("INFO~ [MIC] %08X\n", mic);
+    //printf("%s[MIC] %08X\n", INFOMSG, mic);
 	frame[index] = mic&0xFF;
 	frame[++index] = (mic>>8)&0xFF;
 	frame[++index] = (mic>>16)&0xFF;
@@ -254,7 +277,7 @@ static inline dn_pkt_s* search_dn_list(const char* addr) {
 
 int pkt_start(serv_s* serv) {
     if (lgw_pthread_create_background(&serv->thread.t_up, NULL, (void *(*)(void *))pkt_deal_up, serv)) {
-        lgw_log(LOG_WARNING, "WARNING~ [%s] Can't create packages deal pthread.\n", serv->info.name);
+        lgw_log(LOG_WARNING, "%s[THREAD][%s] Can't create packages deal pthread.\n", WARNMSG, serv->info.name);
         return -1;
     }
 
@@ -333,10 +356,14 @@ int pkt_start(serv_s* serv) {
         }
 
         if (lgw_pthread_create_background(&serv->thread.t_down, NULL, (void *(*)(void *))pkt_prepare_downlink, (void*)serv)) {
-            lgw_log(LOG_WARNING, "WARNING~ [%s] Can't create pthread for custom downlonk.\n", serv->info.name);
+            lgw_log(LOG_WARNING, "%s[THREAD][%s] Can't create pthread for custom downlonk.\n", WARNMSG, serv->info.name);
             return -1;
         }
     }
+
+    LGW_LIST_LOCK(&GW.rxpkts_list);
+    GW.info.service_count++;
+    LGW_LIST_UNLOCK(&GW.rxpkts_list);
 
     lgw_db_put("service/pkt", serv->info.name, "runing");
     lgw_db_put("thread", serv->info.name, "runing");
@@ -351,6 +378,9 @@ void pkt_stop(serv_s* serv) {
     if (GW.cfg.custom_downlink) {
 	    pthread_join(serv->thread.t_down, NULL);
     }
+    LGW_LIST_LOCK(&GW.rxpkts_list);
+    GW.info.service_count--;
+    LGW_LIST_UNLOCK(&GW.rxpkts_list);
     lgw_db_del("service/pkt", serv->info.name);
     lgw_db_del("thread", serv->info.name);
 }
@@ -383,11 +413,11 @@ static void thread_pkt_deal_up(void* arg) {
 
     //lgw_log(LOG_DEBUG, "THREAD~<< [tid=%ld] startup(%u:%u)\n", tid, start_us.tv_sec, start_us.tv_usec);
 
-	int i;					/* loop variables */
+	int i, j;					/*!> loop variables */
     int fsize = 0;
     int index = 0;
 
-	struct lgw_pkt_rx_s *p;	/* pointer on a RX packet */
+	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
 
 	int buff_index;
 
@@ -400,39 +430,85 @@ static void thread_pkt_deal_up(void* arg) {
 
     for (i = 0; i < serv_ct->nb_pkt; i++) {
         p = &serv_ct->rxpkt[i];
+
+        if (p->if_chain == IF_DELAY) {
+            lgw_log(LOG_DEBUG, "%s[%s-UP] skip from Storage\n", DEBUGMSG, serv->info.name);
+            continue;
+        }
+
         switch(p->status) {
             case STAT_CRC_OK:
                 if (!serv->filter.fwd_valid_pkt) {
-                    continue; /* skip that packet */
+                    continue; /*!> skip that packet */
                 }
                 break;
             case STAT_CRC_BAD:
                 if (!serv->filter.fwd_error_pkt) {
-                    continue; /* skip that packet */
+                    continue; /*!> skip that packet */
                 }
                 break;
             case STAT_NO_CRC:
                 if (!serv->filter.fwd_nocrc_pkt) {
-                    continue; /* skip that packet */
+                    continue; /*!> skip that packet */
                 }
                 break;
             default:
-                continue; /* skip that packet */
+                continue; /*!> skip that packet */
         }
 
-        if (p->size < 13) /* offset of frmpayload */
+        if (p->size < 13) /*!> offset of frmpayload */
             continue;
+
+        /*!>for G2G(relay) 
+         ** Receive downlink from other GW **
+         **/
+
+        if (GW.relay.as_relay && p->if_chain == 8 && ((p->payload[0] & RELAY_DN) == RELAY_DN)) {  
+            uint32_t count_us = 0;
+            count_us = (uint32_t)p->payload[1];
+            count_us |= (uint32_t)p->payload[2]<<8;
+            count_us |= (uint32_t)p->payload[3]<<16;
+            count_us |= (uint32_t)p->payload[4]<<24;
+            dn_pkt_s* entry = NULL;
+            entry = (dn_pkt_s*) lgw_malloc(sizeof(dn_pkt_s));
+            entry->optlen = 0;
+            entry->fopt = NULL;
+            entry->txpw = 0;
+            entry->txbw = 0;
+            entry->txdr = 0;
+            entry->txfreq = 0;
+            entry->relay = 1;
+            entry->rxwindow = 2;
+            entry->txport = DEFAULT_DOWN_FPORT;
+            entry->ftype = FRAME_TYPE_DATA_UNCONFIRMED_DOWN;
+            strcpy(entry->txmode, "time");
+            lgw_memcpy(entry->payload, &(p->payload[5]), p->size - 5);
+            entry->psize = p->size - 5;
+            jit_result = custom_rx2dn(entry, NULL, count_us, TIMESTAMPED);
+            if (jit_result != JIT_ERROR_OK)
+                lgw_log(LOG_ERROR, "%s[RELAY]REJECTED time:%u (jit error=%d)\n", ERRMSG, count_us, jit_result);
+            else {
+                lgw_log(LOG_DEBUG, "%s[RELAY]customer downlink time:%u, size:%d\n", DEBUGMSG, count_us, entry->psize);
+            }
+            lgw_free(entry);
+
+            continue;   /*!> next packet */
+        }
+
+        /*!>*** Test G2G ****** TODO **************
+        ****************************************
+        ***************************************/
 
         memset(&macmsg, 0, sizeof(macmsg));
         macmsg.Buffer = p->payload;
         macmsg.BufSize = p->size;
 
-        if (LoRaMacParserData(&macmsg) != LORAMAC_PARSER_SUCCESS)
+        if (LoRaMacParserData(&macmsg) != LORAMAC_PARSER_SUCCESS)    /*!> MAC decode */
             continue;
 
         if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || serv->filter.nwkid != NOFILTER) {
             if (pkt_basic_filter(serv, macmsg.FHDR.DevAddr, macmsg.FPort)) {
-                lgw_log(LOG_INFO, "INFO~ [%s-up] Drop a packet has fport(%u) of %08X.\n", serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
+                lgw_log(LOG_DEBUG, "%s[%s-UP] Drop a packet has fport(%u) of %08X.\n", DEBUGMSG, serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
                 continue;
             }
         }
@@ -454,9 +530,9 @@ static void thread_pkt_deal_up(void* arg) {
             str2hex(devinfo.appskey, devinfo.appskey_str, sizeof(devinfo.appskey));
             str2hex(devinfo.nwkskey, devinfo.nwkskey_str, sizeof(devinfo.nwkskey));
 
-            /* Debug message of appskey */
-            /*
-            lgw_log(LOG_DEBUG, "\nDEBUG~ [MAC-Decode]appskey:");
+            /*!> Debug message of appskey */
+            /*!>
+            lgw_log(LOG_DEBUG, "\n%s[MAC-Decode]appskey:", DEBUGMSG);
             for (j = 0; j < (int)sizeof(devinfo.appskey); ++j) {
                 lgw_log(LOG_DEBUG, "%02X", devinfo.appskey[j]);
             }
@@ -472,10 +548,10 @@ static void thread_pkt_deal_up(void* arg) {
                 for (l = 0; l < FCNT_GAP; l++) {   // loop 8 times
                     fcnt = macmsg.FHDR.FCnt | (l * 0x10000);
                     LoRaMacComputeMic(p->payload, p->size - 4, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, &mic);
-                    //lgw_log(LOG_DEBUG, "DEBUG~ [MIC] mic=%08X, MIC=%08X, fcnt=%u, FCNT=%u\n", mic, macmsg.MIC, fcnt, macmsg.FHDR.FCnt);
+                    //lgw_log(LOG_DEBUG, "%s[MIC] mic=%08X, MIC=%08X, fcnt=%u, FCNT=%u\n", mic, macmsg.MIC, fcnt, macmsg.FHDR.FCnt);
                     if (mic == macmsg.MIC) {
                         fcnt_valid = true;
-                        lgw_log(LOG_DEBUG, "DEBUG~ [MIC] Found a match fcnt(=%u)\n", fcnt);
+                        lgw_log(LOG_DEBUG, "%s[DECODE] Found a match fcnt(=%u)\n", DEBUGMSG, fcnt);
                         break;
                     }
                 }
@@ -487,9 +563,9 @@ static void thread_pkt_deal_up(void* arg) {
                     else
                         LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.appskey, devinfo.devaddr, UP, fcnt, payload_txt);
 
-                    /* Debug message of decoded payload */
-                    /*
-                    lgw_log(LOG_DEBUG, "\nDEBUG~ [MAC-Decode] RX(%d):", fsize);
+                    /*!> Debug message of decoded payload */
+                    /*!>
+                    lgw_log(LOG_DEBUG, "\n%s[MAC-Decode] RX(%d):", fsize);
                     for (i = 0; i < fsize; ++i) {
                         lgw_log(LOG_DEBUG, "%02X", payload_txt[i]);
                     }
@@ -503,7 +579,7 @@ static void thread_pkt_deal_up(void* arg) {
                         snprintf(pushpath, sizeof(pushpath), "/var/iot/channels/%08X-%u", devinfo.devaddr, fcnt % 5);
                         fp = fopen(pushpath, "w+");
                         if (NULL == fp)
-                            lgw_log(LOG_WARNING, "WARNING~ [Decrypto] Fail to open path: %s\n", pushpath);
+                            lgw_log(LOG_WARNING, "%s[DECODE] Fail to open path: %s\n", WARNMSG, pushpath);
                         else { 
                             sprintf(rssi_snr, "%08X%08X", (short)p->rssic, (short)(p->snr*10));
                             fwrite(rssi_snr, sizeof(char), 16, fp);
@@ -514,7 +590,7 @@ static void thread_pkt_deal_up(void* arg) {
                     
                     }
 
-                    if (GW.cfg.mac2db) { /* 每个devaddr最多保存10个payload */
+                    if (GW.cfg.mac2db) { /*!> 每个devaddr最多保存10个payload */
                         sprintf(db_family, "/payload/%08X", devinfo.devaddr);
                         if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
                             lgw_db_put(db_family, "index", "0");
@@ -528,24 +604,24 @@ static void thread_pkt_deal_up(void* arg) {
             }
 
             if (GW.cfg.custom_downlink) {
-                /* Customer downlink process */
+                /*!> Customer downlink process */
                 dn_pkt_s* dnelem = NULL;
                 sprintf(tmpstr, "%08X", devinfo.devaddr);
                 dnelem = search_dn_list(tmpstr);
                 if (dnelem != NULL) {
-                    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]Found a match devaddr: %s, prepare a downlink!\n", tmpstr);
+                    lgw_log(LOG_DEBUG, "%s[DNLK]Found a match devaddr: %s, prepare a downlink!\n", DEBUGMSG, tmpstr);
                     jit_result = custom_rx2dn(dnelem, &devinfo, p->count_us, TIMESTAMPED);
-                    if (jit_result == JIT_ERROR_OK) { /* Next upmsg willbe indicate if received by note */
+                    if (jit_result == JIT_ERROR_OK) { /*!> Next upmsg willbe indicate if received by note */
                         LGW_LIST_LOCK(&dn_list);
                         LGW_LIST_REMOVE(&dn_list, dnelem, list);
                         lgw_free(dnelem);
                         LGW_LIST_UNLOCK(&dn_list);
                     } else {
-                        lgw_log(LOG_ERROR, "ERROR~ [DNLK]Packet REJECTED (jit error=%d)\n", jit_result);
+                        lgw_log(LOG_ERROR, "%s[DNLK]Packet REJECTED (jit error=%d)\n", ERRMSG, jit_result);
                     }
 
                 } else
-                    lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]NO custom downlink command for Dev %08X\n", devinfo.devaddr);
+                    lgw_log(LOG_DEBUG, "%s[DNLK]NO custom downlink command for Dev %08X\n", DEBUGMSG, devinfo.devaddr);
             }
         }
     } // for nb_pkt loop
@@ -563,10 +639,10 @@ static void thread_pkt_deal_up(void* arg) {
 
 static void pkt_prepare_downlink(void* arg) {
     serv_s* serv = (serv_s*) arg;
-    lgw_log(LOG_INFO, "INFO~ [%s] Staring pkt_prepare_downlink thread...\n", serv->info.name);
+    lgw_log(LOG_INFO, "%s[THREAD][%s] Staring pkt_prepare_downlink thread...\n", INFOMSG, serv->info.name);
     
-    int i, j, start; /* loop variables, start of cpychar */
-    uint8_t psize = 0, size = 0; /* sizeof payload, file char lenth */
+    int i, j, start; /*!> loop variables, start of cpychar */
+    uint8_t psize = 0, size = 0; /*!> sizeof payload, file char lenth */
 
     uint32_t uaddr;
 
@@ -576,8 +652,8 @@ static void pkt_prepare_downlink(void* arg) {
     struct stat statbuf;
     char dn_file[256]; 
 
-    /* data buffers */
-    uint8_t buff_down[512]; /* buffer to receive downstream packets */
+    /*!> data buffers */
+    uint8_t buff_down[512]; /*!> buffer to receive downstream packets */
     uint8_t dnpld[256];
     uint8_t hexpld[256];
     uint8_t hexopt[16];
@@ -592,54 +668,54 @@ static void pkt_prepare_downlink(void* arg) {
 
     while (!serv->thread.stop_sig) {
         
-        /* lookup file */
+        /*!> lookup file */
         if ((dir = opendir(DNPATH)) == NULL) {
-            //lgw_log(LOG_ERROR, "ERROR~ [push]open sending path error\n");
+            //lgw_log(LOG_ERROR, "%s[push]open sending path error\n", ERRMSG);
             wait_ms(100); 
             continue;
         }
 
 	    while ((ptr = readdir(dir)) != NULL) {
-            if (strcmp(ptr->d_name, ".") == 0 || strcmp(ptr->d_name, "..") == 0) /* current dir OR parrent dir */
+            if (strcmp(ptr->d_name, ".") == 0 || strcmp(ptr->d_name, "..") == 0) /*!> current dir OR parrent dir */
                 continue;
 
-            lgw_log(LOG_INFO, "INFO~ [DNLK]Looking file : %s\n", ptr->d_name);
+            lgw_log(LOG_INFO, "%s[DNLK]Looking file : %s\n", INFOMSG, ptr->d_name);
 
             snprintf(dn_file, sizeof(dn_file), "%s/%s", DNPATH, ptr->d_name);
 
             if (stat(dn_file, &statbuf) < 0) {
-                lgw_log(LOG_ERROR, "ERROR~ [DNLK]Canot stat %s!\n", ptr->d_name);
+                lgw_log(LOG_ERROR, "%s[DNLK]Canot stat %s!\n", ERRMSG, ptr->d_name);
                 continue;
             }
 
             if ((statbuf.st_mode & S_IFMT) == S_IFREG) {
                 if ((fp = fopen(dn_file, "r")) == NULL) {
-                    lgw_log(LOG_ERROR, "ERROR~ [DNLK]Cannot open %s\n", ptr->d_name);
+                    lgw_log(LOG_ERROR, "%s[DNLK]Cannot open %s\n", ERRMSG, ptr->d_name);
                     continue;
                 }
 
                 lgw_memset(buff_down, '\0', sizeof(buff_down));
 
-                size = fread(buff_down, sizeof(char), sizeof(buff_down), fp); /* the size less than buff_down return EOF */
+                size = fread(buff_down, sizeof(char), sizeof(buff_down), fp); /*!> the size less than buff_down return EOF */
                 fclose(fp);
 
-                unlink(dn_file); /* delete the file */
+                unlink(dn_file); /*!> delete the file */
 
                 for (i = 0, j = 0; i < size; i++) {
                     if (buff_down[i] == ',')
                         j++;
                 }
 
-                if (j < 3) { /* Error Format, ',' must be greater than or equal to 3*/
-                    lgw_log(LOG_INFO, "INFO~ [DNLK]Format error: %s\n", buff_down);
+                if (j < 3) { /*!> Error Format, ',' must be greater than or equal to 3*/
+                    lgw_log(LOG_INFO, "%s[DNLK]Format error: %s\n", INFOMSG, buff_down);
                     continue;
                 }
 
                 start = 0;
 
-                /********************************************************/
-                /* constrator dn_pkt_s, first fill default value */
-                /********************************************************/
+                /*!>*******************************************************/
+                /*!> constrator dn_pkt_s, first fill default value */
+                /*!>*******************************************************/
                 entry = (dn_pkt_s*) lgw_malloc(sizeof(dn_pkt_s));
                 entry->optlen = 0; 
                 entry->fopt = NULL;
@@ -652,9 +728,9 @@ static void pkt_prepare_downlink(void* arg) {
                 entry->txport = DEFAULT_DOWN_FPORT; 
                 entry->ftype = FRAME_TYPE_DATA_UNCONFIRMED_DOWN;        
 
-                /** TODO: should be rewrite the function process **/
+                /*!>* TODO: should be rewrite the function process **/
 
-                /** 1. addr **/
+                /*!>* 1. addr **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) < 1) { 
                     lgw_free(entry);
                     continue;
@@ -662,36 +738,36 @@ static void pkt_prepare_downlink(void* arg) {
                     strcpy(entry->devaddr, swap_str);
 
 
-                /** 2. txmode **/
+                /*!>* 2. txmode **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) < 1)
                     strcpy(entry->txmode, "time");
                 else
                     strcpy(entry->txmode, swap_str); 
 
-                /** 3. payload format **/
+                /*!>* 3. payload format **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) < 1)
                     strcpy(entry->pdformat, "txt"); 
                 else
                     strcpy(entry->pdformat, swap_str); 
 
-                /** 4. payload **/
+                /*!>* 4. payload **/
                 psize = strcpypt((char*)dnpld, (char*)buff_down, &start, size, sizeof(dnpld)); 
                 if (psize < 1) {
                     lgw_free(entry);
                     continue;
                 }
 
-                /** 5. tx power **/
+                /*!>* 5. tx power **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     entry->txpw = atoi(swap_str);
                 } 
 
-                /** 6. tx bandwith **/
+                /*!>* 6. tx bandwith **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     entry->txbw = atoi(swap_str);
                 } 
 
-                /** 7. tx sf **/
+                /*!>* 7. tx sf **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     if (!strncmp(swap_str, "SF7", 3))
                         entry->txdr = DR_LORA_SF7; 
@@ -712,61 +788,68 @@ static void pkt_prepare_downlink(void* arg) {
                     else 
                         entry->txdr = 0; 
                 } 
-                /** 8. tx frequency **/
+                /*!>* 8. tx frequency **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     i = sscanf(swap_str, "%u", &entry->txfreq);
                     if (i != 1)
                         entry->txfreq = 0;
                 } 
 
-                /** 9. tx window **/
+                /*!>* 9. tx window **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     entry->rxwindow = atoi(swap_str);
                     if (entry->rxwindow > 2 || entry->rxwindow < 1)
                         entry->rxwindow = 0;
                 } 
 
-                /** 10. tx fport **/
+                /*!>* 10. tx fport **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     entry->txport = atoi(swap_str);
                     if (entry->txport > 255 || entry->txport < 0)
                         entry->txport = DEFAULT_DOWN_FPORT;
                 } 
 
-                /** 11. tx optlen **/
+                /*!>* 11. tx optlen **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
                     entry->optlen = atoi(swap_str);
                     if (entry->optlen > 32 || entry->optlen < 0)
                         entry->optlen = 0;
                 } 
 
-                /** 12. tx opts **/
+                /*!>* 12. tx opts **/
                 if ((j = strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str))) > 0) {
                     if (entry->optlen > 0 && (j < 32)) {
                         hex2str(swap_str, hexopt, j);
                         entry->fopt = lgw_malloc(sizeof(uint8_t) * j/2);
                         lgw_memcpy(entry->fopt, hexopt, j/2);
                         entry->optlen = j/2;  // fix optlen 
-                        lgw_log(LOG_DEBUG, "DEBUG~ [DNLK] mac-command optlen = %i.\n", entry->optlen);
+                        lgw_log(LOG_DEBUG, "%s[DNLK] mac-command optlen = %i.\n", DEBUGMSG, entry->optlen);
                     } else {
                         entry->optlen = 0;
                         entry->fopt = NULL;
                     }
                 } 
 
-                /** 13. relay **/
+                /*!>* 13. FTYPE **/
                 if (strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str)) > 0) {
-                    entry->relay = 1;
+                    switch (atoi(swap_str)) {
+                        case 1:
+                            entry->ftype = FRAME_TYPE_DATA_CONFIRMED_DOWN;
+                            break;
+                        default:
+                            entry->ftype = FRAME_TYPE_DATA_UNCONFIRMED_DOWN;
+                            break;
+                    }
                 }
 
-                /*******************************************************************/
-                /** End of prepare customer donwlink constractor **/
-                /*******************************************************************/
+                /*!>******************************************************************/
+                /*!>* End of prepare customer donwlink constractor **/
+                /*!>******************************************************************/
 
 
                 if (strstr(entry->pdformat, "hex") != NULL) { 
                     if (psize % 2) {
-                        lgw_log(LOG_INFO, "INFO~ [DNLK] Size of hex payload invalid.\n");
+                        lgw_log(LOG_INFO, "%s[DNLK] Size of hex payload invalid.\n", INFOMSG);
                         if (entry->fopt)
                             lgw_free(entry->fopt);
                         lgw_free(entry);
@@ -826,12 +909,12 @@ static void pkt_prepare_downlink(void* arg) {
                 }
 #endif
 
-                lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]devaddr:%s, txmode:%s, pdfm:%s, size:%d, freq:%u, bw:%u, dr:%u, relay:%s\n", entry->devaddr, entry->txmode, entry->pdformat, entry->psize, entry->txfreq, bw_display, entry->txdr, entry->relay ? "true" : "false");
+                lgw_log(LOG_DEBUG, "%s[DNLK]devaddr:%s, txmode:%s, pdfm:%s, size:%d, freq:%u, bw:%u, dr:%u, ftype:%s\n", DEBUGMSG, entry->devaddr, entry->txmode, entry->pdformat, entry->psize, entry->txfreq, bw_display, entry->txdr, entry->ftype == FRAME_TYPE_DATA_CONFIRMED_DOWN ? "CONFIMED" : "UNCONF");
 
-                lgw_log(LOG_DEBUG, "DEBUG~ [DNLK]payload:\"%s\"\n", entry->payload); 
+                lgw_log(LOG_DEBUG, "%s[DNLK]payload:\"%s\"\n", DEBUGMSG, entry->payload); 
 
                 if (strstr(entry->txmode, "imme") != NULL) {
-                    lgw_log(LOG_INFO, "INFO~ [DNLK] Pending IMMEDIATE downlink for %s\n", entry->devaddr);
+                    lgw_log(LOG_INFO, "%s[DNLK] Pending IMMEDIATE downlink for %s\n", INFOMSG, entry->devaddr);
 
                     uaddr = strtoul(entry->devaddr, NULL, 16);
 
@@ -855,7 +938,7 @@ static void pkt_prepare_downlink(void* arg) {
                     str2hex(devinfo.appskey, devinfo.appskey_str, sizeof(devinfo.appskey));
                     str2hex(devinfo.nwkskey, devinfo.nwkskey_str, sizeof(devinfo.nwkskey));
 
-                    lgw_log(LOG_DEBUG, "\nDEBUG~ [MAC devaddr: %08X]appSkey:", devinfo.devaddr);
+                    lgw_log(LOG_DEBUG, "\n%s[DNLK][DECODE]devaddr: %08X, appSkey:", DEBUGMSG, devinfo.devaddr);
                     for (j = 0; j < (int)sizeof(devinfo.appskey); ++j) {
                         lgw_log(LOG_DEBUG, "%02X", devinfo.appskey[j]);
                     }
@@ -864,9 +947,9 @@ static void pkt_prepare_downlink(void* arg) {
                     jit_result = custom_rx2dn(entry, &devinfo, 0, IMMEDIATE);
 
                     if (jit_result != JIT_ERROR_OK)  
-                        lgw_log(LOG_ERROR, "ERROR~ [DNLK]Packet REJECTED (jit error=%d)\n", jit_result);
+                        lgw_log(LOG_ERROR, "%s[DNLK]Packet REJECTED (jit error=%d)\n", ERRMSG, jit_result);
                     else
-                        lgw_log(LOG_INFO, "INFO~ [DNLK]customer immediate downlink for %s ready\n", entry->devaddr);
+                        lgw_log(LOG_INFO, "%s[DNLK]customer immediate downlink for %s ready\n", INFOMSG, entry->devaddr);
 
                     if (entry->fopt)
                         lgw_free(entry->fopt);
@@ -899,16 +982,16 @@ static void pkt_prepare_downlink(void* arg) {
                 LGW_LIST_INSERT_TAIL(&dn_list, entry, list);
                 LGW_LIST_UNLOCK(&dn_list);
             }
-            wait_ms(100); /* wait for HAT send or other process */
+            wait_ms(100); /*!> wait for HAT send or other process */
         }
         if (closedir(dir) < 0)
-            lgw_log(LOG_INFO, "INFO~ [DNLK]Cannot close DIR: %s\n", DNPATH);
+            lgw_log(LOG_INFO, "%s[DNLK]Cannot close DIR: %s\n", INFOMSG, DNPATH);
         wait_ms(100);
     }
-    lgw_log(LOG_INFO, "INFO~ [%s] END of pkt_prepare_downlink thread\n", serv->info.name);
+    lgw_log(LOG_INFO, "%s[THREAD][%s] END of pkt_prepare_downlink thread\n", INFOMSG, serv->info.name);
 }
 
-/*! 
+/*!>! 
  * \brief copies the string pointed to by src, 
  * \param start the point of src 
  * \param size of the src length 
@@ -953,7 +1036,7 @@ static int strcpypt(char* dest, const char* src, int* start, int size, int len)
 
 static void pkt_deal_up(void* arg) {
     serv_s* serv = (serv_s*) arg;
-    lgw_log(LOG_INFO, "INFO~ [%s] Staring pkt_deal_up thread\n", serv->info.name);
+    lgw_log(LOG_INFO, "%s[THREAD][%s] Staring...\n", INFOMSG, serv->info.name);
 
 	while (!serv->thread.stop_sig) {
 
@@ -981,7 +1064,7 @@ static void pkt_deal_up(void* arg) {
 
             pthread_t ntid;
 
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s] pkt_push_up fetch %d %s.\n", serv->info.name, serv_ct->nb_pkt, serv_ct->nb_pkt < 2 ? "packet" : "packets");
+            lgw_log(LOG_DEBUG, "%s[THREAD][%s] pkt_push_up fetch %d %s.\n", DEBUGMSG, serv->info.name, serv_ct->nb_pkt, serv_ct->nb_pkt < 2 ? "packet" : "packets");
 
             if (lgw_pthread_create(&ntid, NULL, (void *(*)(void *))thread_pkt_deal_up, (void *)serv_ct)) {
                 lgw_free(serv_ct);
@@ -990,19 +1073,16 @@ static void pkt_deal_up(void* arg) {
                 pthread_list_size--;
                 pthread_mutex_unlock(&mx_pthread_list_size);
 
-                lgw_log(LOG_WARNING, "WARNING~ [%s] Can't create push_up pthread.\n", serv->info.name);
+                lgw_log(LOG_WARNING, "%s[THREAD][%s] Can't create push_up pthread.\n", WARNMSG, serv->info.name);
             } else {
                 pthread_detach(ntid);
             }
 
-            //if (pthread_list_size > 16)
-                //break;
-
         //} while (GW.rxpkts_list.size > 1 && (!serv->thread.stop_sig));  
     }
 
-    lgw_log(LOG_INFO, "INFO~ [%s] END of pkt_deal_up thread\n", serv->info.name);
+    lgw_log(LOG_INFO, "%s[THREAD][%s] ENDED!\n", INFOMSG, serv->info.name);
 }
 
-/* --- EOF ------------------------------------------------------------------ */
+/*!> --- EOF ------------------------------------------------------------------ */
 

@@ -1,4 +1,4 @@
-/*
+/*!>
  *  ____  ____      _    ____ ___ _   _  ___  
  *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
  *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
@@ -19,7 +19,7 @@
  *
  */
 
-/*! \file
+/*!>! \file
  *
  * \brief Gateway database Management
  *
@@ -53,9 +53,9 @@
   `content` TEXT,\
   `payload` TEXT)"
 
-#define CREATE_TB_GWDB_SQL "CREATE TABLE IF NOT EXISTS gwdb(key VARCHAR(256), value VARCHAR(512), PRIMARY KEY(key))"
+#define CREATE_TB_GWDB_SQL "CREATE TABLE IF NOT EXISTS gwdb(key VARCHAR(256), value VARCHAR(512), PRIMARY KEY(key));"
 
-#define CREATE_TB_FILTER_SQL "CREATE TABLE IF NOT EXISTS a.filter(name VARCHAR(64), type VARCHAR(32), value VARCHAR(32))"
+#define CREATE_TB_FILTER_SQL "CREATE TABLE IF NOT EXISTS a.filter(name VARCHAR(64), type VARCHAR(32), value VARCHAR(32));"
 
 #define CREATE_TRG_CLEAN_PKT "CREATE TRIGGER IF NOT EXISTS `trg_clean_pkt` AFTER INSERT ON livepkts BEGIN \
     INSERT OR REPLACE INTO gwdb VALUES('/fwd/pkts/total', (SELECT ifnull(1+(SELECT value FROM gwdb WHERE key LIKE '/fwd/pkts/total'), 1)));\
@@ -77,17 +77,18 @@
 #define DEFINE_SQL_STATEMENT(stmt,sql) static sqlite3_stmt *stmt; \
 	const char stmt##_sql[] = sql;
 
-DEFINE_SQL_STATEMENT(put_stmt, "INSERT OR REPLACE INTO gwdb (key, value) VALUES (?, ?)")
-DEFINE_SQL_STATEMENT(get_stmt, "SELECT value FROM gwdb WHERE key=?")
-DEFINE_SQL_STATEMENT(del_stmt, "DELETE FROM gwdb WHERE key=?")
-DEFINE_SQL_STATEMENT(deltree_stmt, "DELETE FROM gwdb WHERE key || '/' LIKE ? || '/' || '%'")
-DEFINE_SQL_STATEMENT(deltree_all_stmt, "DELETE FROM gwdb")
-DEFINE_SQL_STATEMENT(gettree_stmt, "SELECT key, value FROM gwdb WHERE key || '/' LIKE ? || '/' || '%' ORDER BY key")
-DEFINE_SQL_STATEMENT(gettree_all_stmt, "SELECT key, value FROM gwdb ORDER BY key")
-DEFINE_SQL_STATEMENT(showkey_stmt, "SELECT key, value FROM gwdb WHERE key LIKE '%' || '/' || ? ORDER BY key")
-DEFINE_SQL_STATEMENT(gettree_prefix_stmt, "SELECT key, value FROM gwdb WHERE key > ?1 AND key <= ?1 || X'ffff'")
-DEFINE_SQL_STATEMENT(put_pkt_stmt, "INSERT INTO livepkts (pdtype, freq, dr, cnt, devaddr, content, payload) VALUES (?, ?, ?, ?, ?, ?, ?)")
-//DEFINE_SQL_STATEMENT(import_stmt, "ATTACH DATABASE '/etc/lora/devskey' AS a; SELECT devaddr, appskey, nwkskey FROM a.abpdevs");
+DEFINE_SQL_STATEMENT(put_stmt, "INSERT OR REPLACE INTO gwdb (key, value) VALUES (?, ?);")
+DEFINE_SQL_STATEMENT(get_stmt, "SELECT value FROM gwdb WHERE key=?;")
+DEFINE_SQL_STATEMENT(del_stmt, "DELETE FROM gwdb WHERE key=?;")
+DEFINE_SQL_STATEMENT(deltree_stmt, "DELETE FROM gwdb WHERE key || '/' LIKE ? || '/' || '%';")
+DEFINE_SQL_STATEMENT(deltree_all_stmt, "DELETE FROM gwdb;")
+DEFINE_SQL_STATEMENT(gettree_stmt, "SELECT key, value FROM gwdb WHERE key || '/' LIKE ? || '/' || '%' ORDER BY key;")
+DEFINE_SQL_STATEMENT(gettree_all_stmt, "SELECT key, value FROM gwdb ORDER BY key;")
+DEFINE_SQL_STATEMENT(showkey_stmt, "SELECT key, value FROM gwdb WHERE key LIKE '%' || '/' || ? ORDER BY key;")
+DEFINE_SQL_STATEMENT(gettree_prefix_stmt, "SELECT key, value FROM gwdb WHERE key > ?1 AND key <= ?1 || X'ffff';")
+DEFINE_SQL_STATEMENT(put_pkt_stmt, "INSERT INTO livepkts (pdtype, freq, dr, cnt, devaddr, content, payload) VALUES (?, ?, ?, ?, ?, ?, ?);")
+//DEFINE_SQL_STATEMENT(import_stmt, "ATTACH DATABASE '/etc/lora/devskey' AS a; SELECT devaddr, appskey, nwkskey FROM a.abpdevs;");
+
 
 pthread_mutex_t mx_dblock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t dbcond;
@@ -101,8 +102,8 @@ static void db_sync(void);
 static int init_stmt(sqlite3_stmt **stmt, const char *sql, size_t len)
 {
 	pthread_mutex_lock(&mx_dblock);
-	if (sqlite3_prepare(GWDB, sql, len, stmt, NULL) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't prepare statement '%s': %s\n", sql, sqlite3_errmsg(GWDB));
+	if (sqlite3_prepare_v2(GWDB, sql, len, stmt, NULL) != SQLITE_OK) {
+		MSG("%s[DB] Couldn't prepare statement '%s': %s\n", WARNMSG, sql, sqlite3_errmsg(GWDB));
 		pthread_mutex_unlock(&mx_dblock);
 		return -1;
 	}
@@ -111,14 +112,14 @@ static int init_stmt(sqlite3_stmt **stmt, const char *sql, size_t len)
 	return 0;
 }
 
-/*! \internal
+/*!>! \internal
  * \brief Clean up the prepared SQLite3 statement
  * \note mx_dblock should already be locked prior to calling this method
  */
 static int clean_stmt(sqlite3_stmt **stmt, const char *sql)
 {
 	if (sqlite3_finalize(*stmt) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't finalize statement '%s': %s\n", sql, sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't finalize statement '%s': %s\n", WARNMSG, sql, sqlite3_errmsg(GWDB));
 		*stmt = NULL;
 		return -1;
 	}
@@ -126,7 +127,7 @@ static int clean_stmt(sqlite3_stmt **stmt, const char *sql)
 	return 0;
 }
 
-/*! \internal
+/*!>! \internal
  * \brief Clean up all prepared SQLite3 statements
  * \note mx_dblock should already be locked prior to calling this method
  */
@@ -146,7 +147,7 @@ static void clean_statements(void)
 
 static int init_statements(void)
 {
-	/* Don't initialize create_gwdb_statement here as the GWDB table needs to exist
+	/*!> Don't initialize create_gwdb_statement here as the GWDB table needs to exist
 	 * brefore these statements can be initialized */
 	return init_stmt(&get_stmt, get_stmt_sql, sizeof(get_stmt_sql))
 	|| init_stmt(&del_stmt, del_stmt_sql, sizeof(del_stmt_sql))
@@ -160,7 +161,7 @@ static int init_statements(void)
 	|| init_stmt(&put_pkt_stmt, put_pkt_stmt_sql, sizeof(put_pkt_stmt_sql));
 }
 
-/*
+/*!>
 static int db_create_table(void)
 {
 	int res = 0;
@@ -172,7 +173,7 @@ static int db_create_table(void)
 	pthread_mutex_lock(&mx_dblock);
 
 	if (sqlite3_step(create_gwdb_stmt) != SQLITE_DONE) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't create GWDB table gwdb: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't create GWDB table gwdb: %s\n", sqlite3_errmsg(GWDB));
 		res = -1;
 	}
 	sqlite3_reset(create_gwdb_stmt);
@@ -188,8 +189,7 @@ static int db_open(void)
 {
 	pthread_mutex_lock(&mx_dblock);
 	if (sqlite3_open(LGW_DB_FILE, &GWDB) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Unable to open LGW database '%s': %s\n", LGW_DB_FILE, sqlite3_errmsg(GWDB));
-		sqlite3_close(GWDB);
+		MSG("%s[DB] Unable to open LGW database '%s': %s\n", WARNMSG, LGW_DB_FILE, sqlite3_errmsg(GWDB));
 		pthread_mutex_unlock(&mx_dblock);
 		return -1;
 	}
@@ -208,7 +208,7 @@ static int db_init(void)
 	return db_open();
 }
 
-/* We purposely don't lock around the sqlite3 call because the transaction
+/*!> We purposely don't lock around the sqlite3 call because the transaction
  * calls will be called with the database lock held. For any other use, make
  * sure to take the mx_dblock yourself. */
 static int db_exec_sql(const char *sql, int (*callback)(void *, int, char **, char **), void *arg)
@@ -217,7 +217,7 @@ static int db_exec_sql(const char *sql, int (*callback)(void *, int, char **, ch
 	int res =0;
 
 	if (sqlite3_exec(GWDB, sql, callback, arg, &errmsg) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Error executing SQL (%s): %s\n", sql, errmsg);
+		MSG( "WARNING~ [db] Error executing SQL (%s): %s\n", WARNMSG, sql, errmsg);
 		sqlite3_free(errmsg);
 		res = -1;
 	}
@@ -247,7 +247,7 @@ int lgw_db_put(const char *family, const char *key, const char *value)
 	int res = 0;
 
 	if (strlen(family) + strlen(key) + 2 > sizeof(fullkey) - 1) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Family and key length must be less than %zu bytes\n", sizeof(fullkey) - 3);
+		MSG("%s[DB] Family and key length must be less than %zu bytes\n", WARNMSG, sizeof(fullkey) - 3);
 		return -1;
 	}
 
@@ -255,13 +255,13 @@ int lgw_db_put(const char *family, const char *key, const char *value)
 
 	pthread_mutex_lock(&mx_dblock);
 	if (sqlite3_bind_text(put_stmt, 1, fullkey, fullkey_len, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind key to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind key to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_bind_text(put_stmt, 2, value, -1, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind value to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind value to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_step(put_stmt) != SQLITE_DONE) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't execute statement: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't execute statement: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	}
 
@@ -279,28 +279,28 @@ int lgw_db_putpkt(char* pdtype, double freq, char* dr, uint16_t cnt, char* devad
 	pthread_mutex_lock(&mx_dblock);
 
 	if (sqlite3_bind_text(put_pkt_stmt, 1, pdtype, -1, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind payloadd type to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind payloadd type to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_bind_double(put_pkt_stmt, 2, freq) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind frequuency to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind frequuency to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_bind_text(put_pkt_stmt, 3, dr, -1, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind datarate to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind datarate to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_bind_int(put_pkt_stmt, 4, cnt) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind count to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind count to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_bind_text(put_pkt_stmt, 5, devaddr, -1, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind devaddr to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind devaddr to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_bind_text(put_pkt_stmt, 6, content, -1, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind conten to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind conten to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_bind_text(put_pkt_stmt, 7, payload, -1, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind payload to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind payload to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_step(put_pkt_stmt) != SQLITE_DONE) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't execute statement: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't execute statement: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	}
 
@@ -311,7 +311,7 @@ int lgw_db_putpkt(char* pdtype, double freq, char* dr, uint16_t cnt, char* devad
 	return res;
 }
 
-/*!
+/*!>!
  * \internal
  * \brief Get key value specified by family/key.
  *
@@ -330,7 +330,7 @@ static int db_get_common(const char *family, const char *key, char **buffer, int
 	int res = 0;
 
 	if (strlen(family) + strlen(key) + 2 > sizeof(fullkey) - 1) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Family and key length must be less than %zu bytes\n", sizeof(fullkey) - 3);
+		MSG("%s[DB] Family and key length must be less than %zu bytes\n", WARNMSG, sizeof(fullkey) - 3);
 		return -1;
 	}
 
@@ -338,13 +338,13 @@ static int db_get_common(const char *family, const char *key, char **buffer, int
 
 	pthread_mutex_lock(&mx_dblock);
 	if (sqlite3_bind_text(get_stmt, 1, fullkey, fullkey_len, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind key to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind key to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_step(get_stmt) != SQLITE_ROW) {
-		lgw_log(LOG_DEBUG, "DEBUG~ [db] Unable to find key '%s' in family '%s'\n", key, family);
+		MSG("%s[DB] Unable to find key '%s' in family '%s'\n", WARNMSG, key, family);
 		res = -1;
 	} else if (!(result = sqlite3_column_text(get_stmt, 0))) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't get value\n");
+		MSG("%s[DB] Couldn't get value\n", WARNMSG);
 		res = -1;
 	} else {
 		const char *value = (const char *) result;
@@ -364,7 +364,7 @@ static int db_get_common(const char *family, const char *key, char **buffer, int
 bool lgw_db_key_exist(const char *key) {
 	pthread_mutex_lock(&mx_dblock);
     if (!lgw_strlen_zero(key) && (sqlite3_bind_text(showkey_stmt, 1, key, -1, SQLITE_STATIC) != SQLITE_OK)) {
-        lgw_log(LOG_WARNING, "WARNING~ [db] Could bind %s to stmt: %s\n", LGW_DB_FILE, sqlite3_errmsg(GWDB));
+        MSG("%s[DB] Could bind %s to stmt: %s\n", WARNMSG, LGW_DB_FILE, sqlite3_errmsg(GWDB));
         sqlite3_reset(showkey_stmt);
         pthread_mutex_unlock(&mx_dblock);
         return false;
@@ -385,7 +385,7 @@ int lgw_db_get(const char *family, const char *key, char *value, int valuelen)
 {
 	lgw_assert(value != NULL);
 
-	/* Make sure we initialize */
+	/*!> Make sure we initialize */
 	value[0] = 0;
 
 	return db_get_common(family, key, &value, valuelen);
@@ -405,7 +405,7 @@ int lgw_db_del(const char *family, const char *key)
 	int res = 0;
 
 	if (strlen(family) + strlen(key) + 2 > sizeof(fullkey) - 1) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Family and key length must be less than %zu bytes\n", sizeof(fullkey) - 3);
+		MSG("%s[DB] Family and key length must be less than %zu bytes\n", WARNMSG, sizeof(fullkey) - 3);
 		return -1;
 	}
 
@@ -413,10 +413,10 @@ int lgw_db_del(const char *family, const char *key)
 
 	pthread_mutex_lock(&mx_dblock);
 	if (sqlite3_bind_text(del_stmt, 1, fullkey, fullkey_len, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't bind key to stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't bind key to stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_step(del_stmt) != SQLITE_DONE) {
-		lgw_log(LOG_DEBUG, "DEBUG~ [db] Unable to find key '%s' in family '%s'\n", key, family);
+		MSG("%s[DB] Unable to find key '%s' in family '%s'\n", WARNMSG, key, family);
 		res = -1;
 	}
 	sqlite3_reset(del_stmt);
@@ -434,10 +434,10 @@ int lgw_db_deltree(const char *family, const char *keytree)
 
 	if (!lgw_strlen_zero(family)) {
 		if (!lgw_strlen_zero(keytree)) {
-			/* Family and key tree */
+			/*!> Family and key tree */
 			snprintf(prefix, sizeof(prefix), "/%s/%s", family, keytree);
 		} else {
-			/* Family only */
+			/*!> Family only */
 			snprintf(prefix, sizeof(prefix), "/%s", family);
 		}
 	} else {
@@ -447,10 +447,10 @@ int lgw_db_deltree(const char *family, const char *keytree)
 
 	pthread_mutex_lock(&mx_dblock);
 	if (!lgw_strlen_zero(prefix) && (sqlite3_bind_text(stmt, 1, prefix, -1, SQLITE_STATIC) != SQLITE_OK)) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Could bind %s to stmt: %s\n", prefix, sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Could bind %s to stmt: %s\n", WARNMSG, prefix, sqlite3_errmsg(GWDB));
 		res = -1;
 	} else if (sqlite3_step(stmt) != SQLITE_DONE) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Couldn't execute stmt: %s\n", sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Couldn't execute stmt: %s\n", WARNMSG, sqlite3_errmsg(GWDB));
 		res = -1;
 	}
 	res = sqlite3_changes(GWDB);
@@ -509,15 +509,15 @@ struct lgw_db_entry *lgw_db_gettree(const char *family, const char *keytree)
 
 	if (!lgw_strlen_zero(family)) {
 		if (!lgw_strlen_zero(keytree)) {
-			/* Family and key tree */
+			/*!> Family and key tree */
 			res = snprintf(prefix, sizeof(prefix), "/%s/%s", family, keytree);
 		} else {
-			/* Family only */
+			/*!> Family only */
 			res = snprintf(prefix, sizeof(prefix), "/%s", family);
 		}
 
 		if (res >= sizeof(prefix)) {
-			lgw_log(LOG_WARNING, "WARNING~ [db] Requested prefix is too long: %s\n", keytree);
+			MSG("%s[DB] Requested prefix is too long: %s\n", WARNMSG, keytree);
 			return NULL;
 		}
 	} else {
@@ -527,7 +527,7 @@ struct lgw_db_entry *lgw_db_gettree(const char *family, const char *keytree)
 
 	pthread_mutex_lock(&mx_dblock);
 	if (res && (sqlite3_bind_text(stmt, 1, prefix, res, SQLITE_STATIC) != SQLITE_OK)) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Could not bind %s to stmt: %s\n", prefix, sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Could not bind %s to stmt: %s\n", WARNMSG, prefix, sqlite3_errmsg(GWDB));
 		sqlite3_reset(stmt);
 		pthread_mutex_unlock(&mx_dblock);
 		return NULL;
@@ -548,13 +548,13 @@ struct lgw_db_entry *lgw_db_gettree_by_prefix(const char *family, const char *ke
 
 	res = snprintf(prefix, sizeof(prefix), "/%s/%s", family, key_prefix);
 	if (res >= sizeof(prefix)) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Requested key prefix is too long: %s\n", key_prefix);
+		MSG("%s[DB] Requested key prefix is too long: %s\n", WARNMSG, key_prefix);
 		return NULL;
 	}
 
 	pthread_mutex_lock(&mx_dblock);
 	if (sqlite3_bind_text(gettree_prefix_stmt, 1, prefix, res, SQLITE_STATIC) != SQLITE_OK) {
-		lgw_log(LOG_WARNING, "WARNING~ [db] Could not bind %s to stmt: %s\n", prefix, sqlite3_errmsg(GWDB));
+		MSG("%s[DB] Could not bind %s to stmt: %s\n", WARNMSG, prefix, sqlite3_errmsg(GWDB));
 		sqlite3_reset(gettree_prefix_stmt);
 		pthread_mutex_unlock(&mx_dblock);
 		return NULL;
@@ -577,7 +577,7 @@ void lgw_db_freetree(struct lgw_db_entry *dbe)
 	}
 }
 
-/*!
+/*!>!
  * \internal
  * \brief Signal the GWDB sync thread to do its thing.
  *
@@ -589,7 +589,7 @@ static void db_sync(void)
 	pthread_cond_signal(&dbcond);
 }
 
-/*!
+/*!>!
  * \internal
  * \brief GWDB sync thread
  *
@@ -604,7 +604,7 @@ static void *db_sync_thread()
 	pthread_mutex_lock(&mx_dblock);
 	lgw_db_begin_transaction();
 	for (;;) {
-		/* If dosync is set, db_sync() was called during sleep(1),
+		/*!> If dosync is set, db_sync() was called during sleep(1),
 		 * and the pending transaction should be committed.
 		 * Otherwise, block until db_sync() is called.
 		 */
@@ -628,13 +628,13 @@ static void *db_sync_thread()
 	return NULL;
 }
 
-/*!
+/*!>!
  * \internal
  * \brief Clean up resources on shutdown
  */
 static void gwdb_atexit(void)
 {
-	/* Set doexit to 1 to kill thread. db_sync must be called with
+	/*!> Set doexit to 1 to kill thread. db_sync must be called with
 	 * mutex held. */
 	pthread_mutex_lock(&mx_dblock);
 	doexit = 1;
@@ -644,9 +644,7 @@ static void gwdb_atexit(void)
 	pthread_join(syncthread, NULL);
 	pthread_mutex_lock(&mx_dblock);
 	clean_statements();
-	if (sqlite3_close(GWDB) == SQLITE_OK) {
-		GWDB = NULL;
-	}
+	sqlite3_close_v2(GWDB);
 	pthread_mutex_unlock(&mx_dblock);
 }
 
@@ -686,7 +684,7 @@ int lgw_db_init(void)
 		return -1;
 	}
 
-    /* sqlite3 staring ... */
+    /*!> sqlite3 staring ... */
 	db_exec_sql(CREATE_TB_GWDB_SQL, NULL, NULL);
 	db_exec_sql("PRAGMA journal_mode = WAL;", NULL, NULL);
 	db_exec_sql("PRAGMA busy_timeout = 100;", NULL, NULL);
@@ -705,9 +703,13 @@ int lgw_db_init(void)
     db_exec_sql("SELECT DISTINCT * FROM a.filter", import_filter, NULL);
 	db_exec_sql("DETACH DATABASE a", NULL, NULL);
 
-    init_statements();
+    if (init_statements()) {
+	    sqlite3_close_v2(GWDB);
+        return -1;
+    }
 
 	if (pthread_create(&syncthread, NULL, db_sync_thread, NULL)) {
+	    sqlite3_close_v2(GWDB);
 		return -1;
 	}
 

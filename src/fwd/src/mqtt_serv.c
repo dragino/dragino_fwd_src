@@ -1,4 +1,4 @@
-/*
+/*!>
  *  ____  ____      _    ____ ___ _   _  ___  
  *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
  *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
@@ -19,7 +19,7 @@
  *
  */
 
-/*!
+/*!>!
  * \file
  * \brief 
  *  Description:
@@ -71,7 +71,7 @@ static void mqtt_dnlink_cb(struct MessageData *data, void* s) {
 }
 
 void dnlink_handler(MessageData* data) {
-    lgw_log(LOG_INFO, "INFO~ mqtt suscribe %d bytes message: %s/%s\n", data->message->payloadlen, data->topicName, (char*)data->message->payload);
+    lgw_log(LOG_INFO, "[INFO~]mqtt suscribe %d bytes message: %s/%s\n", data->message->payloadlen, data->topicName, (char*)data->message->payload);
 }
 
 static int mqtt_connect(serv_s *serv) {
@@ -163,7 +163,7 @@ static int mqtt_send_uplink(mqttsession_s *session, char *uplink, int len) {
     return rc;
 }
 
-/*! 
+/*!>! 
  * \brief mqtt 会话初始化 
  * \param id 会话的ID，gateway_id
  * \param dnlink_handle 下发内容处理函数
@@ -194,14 +194,17 @@ int mqtt_start(serv_s* serv) {
     int ret;
     ret = mqtt_connect(serv);
     if (ret != SUCCESS) {
-        lgw_log(LOG_WARNING, "WARNING~ [%s] Can't connet mqtt server.\n", serv->info.name);
+        lgw_log(LOG_WARNING, "[WARNING~][%s] Can't connet mqtt server.\n", serv->info.name);
         return FAILURE;
     }
     if (lgw_pthread_create_background(&serv->thread.t_up, NULL, (void *(*)(void *))mqtt_push_up, serv)) {
-        lgw_log(LOG_WARNING, "WARNING~ [%s] Can't create push up pthread.\n", serv->info.name);
+        lgw_log(LOG_WARNING, "[WARNING~][%s] Can't create push up pthread.\n", serv->info.name);
         return -1;
     }
 
+    LGW_LIST_LOCK(&GW.rxpkts_list);
+    GW.info.service_count++;
+    LGW_LIST_UNLOCK(&GW.rxpkts_list);
     lgw_db_put("service/mqtt", serv->info.name, "running");
     lgw_db_put("thread", serv->info.name, "running");
 
@@ -218,6 +221,9 @@ void mqtt_stop(serv_s* serv) {
     mqtt_cleanup((mqttsession_s*)serv->net->mqtt->session);
     serv->state.connecting = false;
     serv->state.live = false;
+    LGW_LIST_LOCK(&GW.rxpkts_list);
+    GW.info.service_count--;
+    LGW_LIST_UNLOCK(&GW.rxpkts_list);
     snprintf(family, sizeof(family), "service/mqtt/%s", serv->info.name);
     lgw_db_del(family, "network");
     lgw_db_del("service/mqtt", serv->info.name);
@@ -227,10 +233,10 @@ void mqtt_stop(serv_s* serv) {
 static void mqtt_push_up(void* arg) {
     serv_s* serv = (serv_s*) arg;
 
-	int i, j;					/* loop variables */
+	int i, j;					/*!> loop variables */
     int err;
     int nb_pkt = 0;
-	struct lgw_pkt_rx_s *p;	/* pointer on a RX packet */
+	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
 
     rxpkts_s* rxpkt_entry = NULL;
 
@@ -240,7 +246,7 @@ static void mqtt_push_up(void* arg) {
         mqtt_reconnect(serv);
     }
 
-    lgw_log(LOG_INFO, "INFO~ [%s] starting mqtt_push_up thread...\n", serv->info.name);
+    lgw_log(LOG_INFO, "[INFO~][%s] starting mqtt_push_up thread...\n", serv->info.name);
 
 	while (!serv->thread.stop_sig) {
 		// wait for data to arrive
@@ -255,42 +261,42 @@ static void mqtt_push_up(void* arg) {
             continue;
         }
 
-        lgw_log(LOG_DEBUG, "DEBUG~ [%s] mqtt_push_up fetch %d pachages.\n", serv->info.name, nb_pkt);
+        lgw_log(LOG_DEBUG, "[DEBUG~][%s] mqtt_push_up fetch %d pachages.\n", serv->info.name, nb_pkt);
 
         for (i = 0; i < nb_pkt; i++) {
             p = &serv_ct->rxpkt[i];
-            /* basic packet filtering */
+            /*!> basic packet filtering */
             switch (p->status) {
             case STAT_CRC_OK:
                 if (!serv->filter.fwd_valid_pkt) {
-                    continue;	/* skip that packet */
+                    continue;	/*!> skip that packet */
                 }
                 break;
             case STAT_CRC_BAD:
                 if (!serv->filter.fwd_error_pkt) {
-                    continue;	/* skip that packet */
+                    continue;	/*!> skip that packet */
                 }
                 break;
             case STAT_NO_CRC:
                 if (!serv->filter.fwd_nocrc_pkt) {
-                    continue;	/* skip that packet */
+                    continue;	/*!> skip that packet */
                 }
                 break;
             default:
-                continue;		/* skip that packet */
+                continue;		/*!> skip that packet */
             }
             err = payload_deal((mqttsession_s*)serv->net->mqtt->session, p);
             if (err) {
-                lgw_log(LOG_WARNING, "WARNING~ [%s] send data to mqtt server error, try to reconnect.\n", serv->info.name);
+                lgw_log(LOG_WARNING, "[WARNING~][%s] send data to mqtt server error, try to reconnect.\n", serv->info.name);
                 mqtt_reconnect(serv);
             } else {
-                lgw_log(LOG_INFO, "INFO~ [%s] send data to mqtt server succeed.\n", serv->info.name);
+                lgw_log(LOG_INFO, "[INFO~][%s] send data to mqtt server succeed.\n", serv->info.name);
             }
         }
         lgw_free(serv_ct);
     }
 
-    lgw_log(LOG_INFO, "INFO~ [%s] END of mqtt_push_up thread...\n", serv->info.name);
+    lgw_log(LOG_INFO, "[INFO~][%s] END of mqtt_push_up thread...\n", serv->info.name);
 }
 
 static int payload_deal(mqttsession_s* session, struct lgw_pkt_rx_s* p) {
@@ -307,13 +313,13 @@ static int payload_deal(mqttsession_s* session, struct lgw_pkt_rx_s* p) {
         tmp[i] = p->payload[i];
     }
 
-    if (tmp[2] == 0x00 && tmp[3] == 0x00) /* Maybe has HEADER ffff0000 */
+    if (tmp[2] == 0x00 && tmp[3] == 0x00) /*!> Maybe has HEADER ffff0000 */
         chan_data = &tmp[4];
     else
         chan_data = tmp;
 
-    for (i = 0; i < 16; i++) { /* if radiohead lib then have 4 byte of RH_RF95_HEADER_LEN */
-        if (tmp[i] == '<' && id_found == 0) {  /* if id_found more than 1, '<' found  more than 1 */
+    for (i = 0; i < 16; i++) { /*!> if radiohead lib then have 4 byte of RH_RF95_HEADER_LEN */
+        if (tmp[i] == '<' && id_found == 0) {  /*!> if id_found more than 1, '<' found  more than 1 */
             chan_id = &tmp[i + 1];
             ++id_found;
         }
@@ -325,7 +331,7 @@ static int payload_deal(mqttsession_s* session, struct lgw_pkt_rx_s* p) {
             ++id_found;
         }
 
-        if (id_found == 2) /* found channel id */
+        if (id_found == 2) /*!> found channel id */
             break;
     }
 

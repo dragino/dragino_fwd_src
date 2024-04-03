@@ -1,4 +1,4 @@
-/*
+/*!>
  *  ____  ____      _    ____ ___ _   _  ___  
  *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
  *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
@@ -19,22 +19,22 @@
  *
  */
 
-/*!
+/*!>!
  * \file
  * \brief lora packets status report
  */
 
-#include <stdint.h>				/* C99 types */
-#include <stdbool.h>			/* bool type */
-#include <stdio.h>				/* printf, fprintf, snprintf, fopen, fputs */
+#include <stdint.h>				/*!> C99 types */
+#include <stdbool.h>			/*!> bool type */
+#include <stdio.h>				/*!> printf, fprintf, snprintf, fopen, fputs */
 
-#include <string.h>				/* memset */
-#include <time.h>				/* time, clock_gettime, strftime, gmtime */
-#include <sys/time.h>			/* timeval */
-#include <unistd.h>				/* getopt, access */
-#include <stdlib.h>				/* atoi, exit */
-#include <errno.h>				/* error messages */
-#include <math.h>				/* modf */
+#include <string.h>				/*!> memset */
+#include <time.h>				/*!> time, clock_gettime, strftime, gmtime */
+#include <sys/time.h>			/*!> timeval */
+#include <unistd.h>				/*!> getopt, access */
+#include <stdlib.h>				/*!> atoi, exit */
+#include <errno.h>				/*!> error messages */
+#include <math.h>				/*!> modf */
 #include <assert.h>
 
 #include <pthread.h>
@@ -51,7 +51,7 @@ DECLARE_GW;
 static void semtech_report(serv_s *serv) {
     int i;
 	time_t current_time;
-	/* variables to get local copies of measurements */
+	/*!> variables to get local copies of measurements */
 	uint32_t cp_nb_rx_rcv = 0;
 	uint32_t cp_nb_rx_ok = 0;
 	uint32_t cp_nb_rx_bad = 0;
@@ -82,14 +82,14 @@ static void semtech_report(serv_s *serv) {
     uint32_t trigcnt = 0, instcnt = 0;
     float temperature = 0.0;
 
-	/* GPS coordinates and variables */
+	/*!> GPS coordinates and variables */
 	bool coord_ok = false;
 	struct coord_s cp_gps_coord = { 0.0, 0.0, 0 };
 	char gps_state[16] = "unknown";
 
 	//struct coord_s cp_gps_err;
 
-	/* statistics variable */
+	/*!> statistics variable */
 	char stat_timestamp[24];
 	char iso_timestamp[24];
 	float rx_ok_ratio;
@@ -98,7 +98,7 @@ static void semtech_report(serv_s *serv) {
 	float up_ack_ratio;
 	float dw_ack_ratio;
 
-	/* access upstream statistics, copy and reset them */
+	/*!> access upstream statistics, copy and reset them */
 	pthread_mutex_lock(&(serv->report->mx_report));
 
 	cp_nb_rx_rcv = serv->report->stat_up.meas_nb_rx_rcv;
@@ -124,13 +124,13 @@ static void semtech_report(serv_s *serv) {
 	serv->report->stat_up.meas_up_dgram_sent = 0;
 	serv->report->stat_up.meas_up_ack_rcv = 0;
 
-	/* get timestamp for statistics (must be done inside the lock) */
+	/*!> get timestamp for statistics (must be done inside the lock) */
 	current_time = time(NULL);
 	serv->state.stall_time = (int)(current_time - serv->state.contact);
 
 	pthread_mutex_unlock(&serv->report->mx_report);
 
-	/* Do the math */
+	/*!> Do the math */
 	strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&current_time));
 	strftime(iso_timestamp, sizeof stat_timestamp, "%FT%TZ", gmtime(&current_time));
 
@@ -150,7 +150,7 @@ static void semtech_report(serv_s *serv) {
 		up_ack_ratio = 0.0;
 	}
 
-	/* access downstream statistics, copy and reset them */
+	/*!> access downstream statistics, copy and reset them */
 
 	pthread_mutex_lock(&serv->report->mx_report);
 
@@ -200,7 +200,7 @@ static void semtech_report(serv_s *serv) {
 		dw_ack_ratio = 0.0;
 	}
 
-	/* access GPS statistics, copy them */
+	/*!> access GPS statistics, copy them */
 	if (GW.gps.gps_enabled) {
 		pthread_mutex_lock(&GW.gps.mx_meas_gps);
 		coord_ok = GW.gps.gps_coord_valid;
@@ -208,12 +208,12 @@ static void semtech_report(serv_s *serv) {
 		pthread_mutex_unlock(&GW.gps.mx_meas_gps);
 	}
 
-	/* overwrite with reference coordinates if function is enabled */
+	/*!> overwrite with reference coordinates if function is enabled */
 	if (GW.gps.gps_fake_enable == true) {
 		cp_gps_coord = GW.gps.reference_coord;
 	}
 
-	/* Determine the GPS state in human understandable form */
+	/*!> Determine the GPS state in human understandable form */
 	{
 		if (GW.gps.gps_enabled == false)
 			snprintf(gps_state, sizeof gps_state, "disabled");
@@ -227,9 +227,9 @@ static void semtech_report(serv_s *serv) {
 			snprintf(gps_state, sizeof gps_state, "locked");
 	}
 
-	/* display a report */
+	/*!> display a report */
 	lgw_log(LOG_REPORT, "\n#######################################################\n");
-	lgw_log(LOG_REPORT, "##### [%s] %s #####\n", stat_timestamp, serv->info.name);
+	lgw_log(LOG_REPORT, "\033[32m ##### [%s] REPORT [%s] ##### \033[m\n", serv->info.name, stat_timestamp);
 	lgw_log(LOG_REPORT, "### [UPSTREAM] ###\n");
 	lgw_log(LOG_REPORT, "# RF packets received by concentrator: %u\n", cp_nb_rx_rcv);
 	lgw_log(LOG_REPORT, "# CRC_OK: %.2f%%, CRC_FAIL: %.2f%%, NO_CRC: %.2f%%\n",
@@ -299,7 +299,7 @@ static void semtech_report(serv_s *serv) {
 	//TODO: this is not symmetrical. time can also be derived from other sources, fix
 	if (GW.gps.gps_enabled == true) {
 		lgw_log(LOG_REPORT, "### [GPS] ###\n");
-		/* no need for mutex, display is not critical */
+		/*!> no need for mutex, display is not critical */
 		if (GW.gps.gps_ref_valid == true) {
 			lgw_log(LOG_REPORT, "# Valid gps time reference (age: %li sec)\n", (long)difftime(time(NULL), GW.gps.time_reference_gps.systime));
 		} else {
@@ -318,9 +318,9 @@ static void semtech_report(serv_s *serv) {
 		lgw_log(LOG_REPORT, "### GPS IS DISABLED! \n");
 	}
 
-	/* generate a JSON report (will be sent to serv by upstream thread) */
+	/*!> generate a JSON report (will be sent to serv by upstream thread) */
 
-	/* Check which format to use */
+	/*!> Check which format to use */
 	bool semtech_format = strcmp(serv->report->stat_format, "semtech") == 0;
 	bool other_format = strcmp(serv->report->stat_format, "other") == 0;
 
@@ -392,16 +392,16 @@ static void semtech_report(serv_s *serv) {
 					 cp_nb_tx_ok, GW.info.platform, 
                      GW.info.email, GW.info.description);
 		}
-		lgw_log(LOG_REPORT, "#[%s] Semtech status report ready. \n", serv->info.name);
+		//lgw_log(LOG_REPORT, "#[%s] Semtech status report ready. \n", serv->info.name);
 		pthread_mutex_lock(&serv->report->mx_report);
 		serv->report->report_ready = true;
 		pthread_mutex_unlock(&serv->report->mx_report);
         //lgw_db_put("/fwd/pkts/report", timestr, serv->report->status_report);
 	}
 
+	lgw_log(LOG_REPORT, "\033[32m ############## [%s] REPORT ENDED ###############033[m\n", serv->info.name);
     sem_post(&serv->thread.sema);
 
-	lgw_log(LOG_REPORT, "################### [%s] End of reporting #########################\n", serv->info.name);
 
 }
 
@@ -413,7 +413,7 @@ void report_start() {
                 semtech_report(serv_entry);
                 break;
             default:
-	            lgw_log(LOG_DEBUG, "\n################[%s] no report of this service ###############\n", serv_entry->info.name);
+	            //lgw_log(LOG_DEBUG, "\n################[%s] no report of this service ###############\n", serv_entry->info.name);
                 break;
         }
     }

@@ -1,14 +1,14 @@
-/*
+/*!>
  * endianext.c
  *
  *  Created on: Aug 5, 2016
  *      Author: ruud vlaming
  */
 
-#include <stdint.h>				/* C99 types */
-#include <stdbool.h>			/* bool type */
-#include <string.h>				/* memset */
-#include <stdlib.h>				/* atoi, exit */
+#include <stdint.h>				/*!> C99 types */
+#include <stdbool.h>			/*!> bool type */
+#include <string.h>				/*!> memset */
+#include <stdlib.h>				/*!> atoi, exit */
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
@@ -62,7 +62,7 @@ bool isLittleEndian() {
 
 #endif
 
-/* Like memcpy, but than with bytes reversed. As unsafe as memcpy too! */
+/*!> Like memcpy, but than with bytes reversed. As unsafe as memcpy too! */
 void *swapcpy(void *dest, const void *src, size_t n) {
 	size_t i;
 
@@ -71,7 +71,7 @@ void *swapcpy(void *dest, const void *src, size_t n) {
 	return dest;
 }
 
-/* Use this to copy int's double's etc. Ensures, by testing, the result
+/*!> Use this to copy int's double's etc. Ensures, by testing, the result
  * is in big Endian order.
  * Note: not as fast as byte swapping from byteswap.h, but some
  * systems do not have these available. And this works for all sizes. */

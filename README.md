@@ -215,3 +215,17 @@ usb module can only make 60ms scan loop.
 
 ## 2024/02/26  fwd-3.0.2
 1. fix counter of packages  (stats.c)
+
+## 2024/02/28  fwd-3.0.3
+1. 增加relay功能，网关可以将收到lora包通过接入的la66转发。
+   -- edit pkt_serv.c 
+
+## 2024/02/28  fwd-3.1.0
+GW as relay or has relay function add
+  -- some config for relay ( GW.relay:  1. as_relay 2. has_relay 3. relay_tty_path 4. relay_tty_baude )
+  -- new file ( relay_serv.c )
+
+## 2024/03/19 fwd-3.1.0
+1。更改init_sock时的回收bug，修改online/offline输出的频率。
+2。增加delay 功能，当前网络状态如果是offline，将会在内存里缓存lora包（64个）
+   当网络转为online时，将缓存的包上发。

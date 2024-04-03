@@ -40,6 +40,8 @@
 #include "service.h"
 #include "semtech_service.h"
 #include "pkt_service.h"
+#include "relay_service.h"
+#include "delay_service.h"
 #include "mqtt_service.h"
 
 DECLARE_GW;
@@ -60,12 +62,10 @@ int init_sock(const char *addr, const char *port, const void *timeout, int size)
 	hints.ai_family = AF_INET;	/* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
 	hints.ai_socktype = SOCK_DGRAM;
 
-	//lgw_log(LOG_INFO, "INFO~ [init_sock] getaddrinfo on address %s (PORT %s)\n", addr, port);
-
 	/* look for server address w/ upstream port */
 	i = getaddrinfo(addr, port, &hints, &result);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_sock] getaddrinfo on address %s (PORT %s) returned %s\n", addr, port, gai_strerror(i));
+		lgw_log(LOG_ERROR, "%s[NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", ERRMSG, addr, port, gai_strerror(i));
 		return -1;
 	}
 
@@ -79,12 +79,14 @@ int init_sock(const char *addr, const char *port, const void *timeout, int size)
 	}
 
 	if (q == NULL) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_sock] failed to open socket to any of server %s addresses (port %s)\n", addr, port);
+		lgw_log(LOG_ERROR, "%s[NETWORK] failed to open socket to any of server %s addresses (port %s)\n", ERRMSG, addr, port);
 		i = 1;
 		for (q = result; q != NULL; q = q->ai_next) {
 			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
 			++i;
 		}
+        Close(sockfd);
+	    freeaddrinfo(result);
 
 		return -1;
 	}
@@ -92,14 +94,17 @@ int init_sock(const char *addr, const char *port, const void *timeout, int size)
 	/* connect so we can send/receive packet with the server only */
 	i = connect(sockfd, q->ai_addr, q->ai_addrlen);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_socke] connect returned %s\n", strerror(errno));
+		lgw_log(LOG_ERROR, "%s[NETWORK] connecting... %s\n", WARNMSG, strerror(errno));
+        Close(sockfd);
+	    freeaddrinfo(result);
 		return -1;
 	}
 
 	freeaddrinfo(result);
 
 	if ((setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size)) != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [init_sock] setsockopt returned %s\n", strerror(errno));
+        Close(sockfd);
+		lgw_log(LOG_ERROR, "%s[NETWORK] setsockopt returned %s\n", ERRMSG, strerror(errno));
 		return -1;
 	}
 
@@ -121,22 +126,22 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport) {
 #endif
     snprintf(nwkid_key, sizeof(nwkid_key), "%s/nwkid/%02X", serv->info.name, nwkid);
 
-	lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, addr_key=%s, fport_key=%s, nwkid_key=%s\n", serv->info.name, serv->filter.fport, serv->filter.devaddr, serv->filter.nwkid, addr_key, fport_key, nwkid_key);
+	lgw_log(LOG_DEBUG, "%s[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, addr_key=%s, fport_key=%s, nwkid_key=%s\n", DEBUGMSG, serv->info.name, serv->filter.fport, serv->filter.devaddr, serv->filter.nwkid, addr_key, fport_key, nwkid_key);
     
     switch(serv->filter.fport) {
         case INCLUDE: // 1
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport filter include\n", serv->info.name);
+            lgw_log(LOG_DEBUG, "%s[%s-filter] fport filter include\n", DEBUGMSG, serv->info.name);
             if (lgw_db_key_exist(fport_key))
                 return true;  // filter
             break;
         case EXCLUDE: // 2
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport filter exclude\n", serv->info.name);
+            lgw_log(LOG_DEBUG, "%s[%s-filter] fport filter exclude\n", DEBUGMSG, serv->info.name);
             if (!lgw_db_key_exist(fport_key)) {
                 return true;  //filter
             }
             break;
         default:
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] fport no filter\n", serv->info.name);
+            lgw_log(LOG_DEBUG, "%s[%s-filter] fport no filter\n", DEBUGMSG, serv->info.name);
             break;
     }
 
@@ -150,7 +155,7 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport) {
                 return true; 
             break;
         default:
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] devaddr no filter\n", serv->info.name);
+            lgw_log(LOG_DEBUG, "%s[%s-filter] devaddr no filter\n", DEBUGMSG, serv->info.name);
             break;
     }
 
@@ -158,19 +163,19 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport) {
         case INCLUDE: //1
             if (lgw_db_key_exist(nwkid_key))
                 return true; // filter
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] nwkid(%02X) not INCLUDE \n", serv->info.name, nwkid);
+            lgw_log(LOG_DEBUG, "%s[%s-filter] nwkid(%02X) not INCLUDE \n", DEBUGMSG, serv->info.name, nwkid);
             break;
         case EXCLUDE:
             if (!lgw_db_key_exist(nwkid_key))
                 return true; 
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] nwkid(%02X) not EXCLUDE \n", serv->info.name, nwkid);
+            lgw_log(LOG_DEBUG, "%s[%s-filter] nwkid(%02X) not EXCLUDE \n", DEBUGMSG, serv->info.name, nwkid);
             break;
         default:
-            lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] nwkid(%02X) no filter\n", serv->info.name, nwkid);
+            lgw_log(LOG_DEBUG, "%s[%s-filter] nwkid(%02X) no filter\n", DEBUGMSG, serv->info.name, nwkid);
             break;
     }
 
-    //lgw_log(LOG_DEBUG, "DEBUG~ [%s-filter] default: no filter\n", serv->info.name);
+    //lgw_log(LOG_DEBUG, "%s[%s-filter] default: no filter\n", DEBUGMSG, serv->info.name);
     return false;  // no-filter
 }
 
@@ -200,11 +205,16 @@ void service_start() {
             case pkt:
                 pkt_start(serv_entry);
                 break;
+            case relay:
+                relay_start(serv_entry);
+                break;
+            case delay:
+                delay_start(serv_entry);
+                break;
             case mqtt:
                 mqtt_start(serv_entry);
                 break;
             default:
-                semtech_start(serv_entry);
                 break;
         }
     }
@@ -219,6 +229,12 @@ void service_stop() {
                 break;
             case pkt:
                 pkt_stop(serv_entry);
+                break;
+            case relay:
+                relay_stop(serv_entry);
+                break;
+            case delay:
+                delay_stop(serv_entry);
                 break;
             case mqtt:
                 mqtt_stop(serv_entry);

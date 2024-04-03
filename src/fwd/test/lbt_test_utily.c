@@ -5,23 +5,7 @@
 #include "logger.h"
 #include "uart.h"
 
-#define NONE         "\033[m"
-#define RED          "\033[0;32;31m"
-#define LIGHT_RED    "\033[1;31m"
-#define GREEN        "\033[0;32;32m"
-
 /* --- PUBLIC DECLARATION ---------------------------------------- */
-uint8_t LOG_INFO = 1;
-uint8_t LOG_PKT = 1;
-uint8_t LOG_WARNING = 1;
-uint8_t LOG_ERROR = 1;
-uint8_t LOG_REPORT = 1;
-uint8_t LOG_JIT = 0;
-uint8_t LOG_JIT_ERROR = 0;
-uint8_t LOG_BEACON = 0;
-uint8_t LOG_DEBUG = 1;
-uint8_t LOG_TIMERSYNC = 0;
-uint8_t LOG_MEM = 0;
 
 static void wait_ms(long a);
 static double difftimespec(struct timespec end, struct timespec beginning);

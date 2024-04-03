@@ -1,4 +1,4 @@
-/*
+/*!>
  *  ____  ____      _    ____ ___ _   _  ___  
  *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
  *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
@@ -19,7 +19,7 @@
  *
  */
 
-/*! \file
+/*!>! \file
  *
  * \brief Memory Management
  *
@@ -36,10 +36,10 @@
 #include "fwd.h"
 
 #define MALLOC_FAILURE_MSG \
-      lgw_log(LOG_MEM, "Memory Allocation Failure in function %s at line %d of %s\n", func, lineno, file)
+      MSG_DEBUG(LOG_MEM, "Memory Allocation Failure in function %s at line %d of %s\n", func, lineno, file)
 
 #define FREE_FAILURE_MSG \
-      lgw_log(LOG_MEM, "Memory Point to NULL in function %s at line %d of %s\n", func, lineno, file)
+      MSG_DEBUG(LOG_MEM, "Memory Point to NULL in function %s at line %d of %s\n", func, lineno, file)
 
 void __lgw_free(void *ptr, const char *file, int lineno, const char *func)
 {
@@ -136,7 +136,7 @@ int __lgw_asprintf(const char *file, int lineno, const char *func, char **strp, 
 	va_start(ap, format);
 	res = vasprintf(strp, format, ap);
 	if (res < 0) {
-		/*
+		/*!>
 		 * *strp is undefined so set to NULL to ensure it is
 		 * initialized to something useful.
 		 */
@@ -155,7 +155,7 @@ int __lgw_vasprintf(char **strp, const char *format, va_list ap, const char *fil
 
 	res = vasprintf(strp, format, ap);
 	if (res < 0) {
-		/*
+		/*!>
 		 * *strp is undefined so set to NULL to ensure it is
 		 * initialized to something useful.
 		 */

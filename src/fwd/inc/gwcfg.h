@@ -1,4 +1,4 @@
-/*
+/*!>
  *  ____  ____      _    ____ ___ _   _  ___  
  *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
  *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
@@ -19,7 +19,7 @@
  *
  */
 
-/*!
+/*!>!
  * \file
  * \brief gateway forward data struct define
  */
@@ -47,9 +47,9 @@
 #define DEFAULT_BEACON_INFODESC     0
 
 #ifdef SX1301MOD
-#define NB_PKT_MAX                  16            /* max number of packets per fetch/send cycle */
+#define NB_PKT_MAX                  16            /*!> max number of packets per fetch/send cycle */
 #else
-#define NB_PKT_MAX                  32            /* max number of packets per fetch/send cycle */
+#define NB_PKT_MAX                  32            /*!> max number of packets per fetch/send cycle */
 #endif
 
 typedef enum {
@@ -57,10 +57,12 @@ typedef enum {
 	ttn,
     mqtt,
     pkt,
+    relay,
+    delay,
 	gwtraf
 } serv_type;
 
-typedef enum {   /* Regional parameters */
+typedef enum {   /*!> Regional parameters */
     EU,
     EU433,
     US,
@@ -76,7 +78,7 @@ typedef enum {   /* Regional parameters */
     AU
 } region_s;
 
-typedef enum {     /* thread type for control thread head */
+typedef enum {     /*!> thread type for control thread head */
     rxpkts,
     stats,
     semtech_up,
@@ -90,7 +92,7 @@ typedef enum {     /* thread type for control thread head */
     watchdog
 } thread_type;
 
-typedef struct _rxpkts {   /* rx packages receive from radio or socke */
+typedef struct _rxpkts {   /*!> rx packages receive from radio or socke */
     //bool deal;
     uint32_t entry_us;     //插入添加时间
     uint8_t stamps;        //这个指示当前有什么服务对这个包打上了印记
@@ -111,16 +113,16 @@ typedef struct {               // Configuration File: sx130x (global_conf.json) 
     char sxcfg[32];
 } confs_s;
 
-/* spectral scan */
+/*!> spectral scan */
 typedef struct spectral_scan_s {
-    bool enable;				/* enable spectral scan thread */
-    uint32_t freq_hz_start;		/* first channel frequency, in Hz */
-    uint8_t nb_chan;			/* number of channels to scan (200kHz between each channel) */
-    uint16_t nb_scan;			/* number of scan points for each frequency scan */
-    uint32_t pace_s;			/* number of seconds between 2 scans in the thread */
+    bool enable;				/*!> enable spectral scan thread */
+    uint32_t freq_hz_start;		/*!> first channel frequency, in Hz */
+    uint8_t nb_chan;			/*!> number of channels to scan (200kHz between each channel) */
+    uint16_t nb_scan;			/*!> number of scan points for each frequency scan */
+    uint32_t pace_s;			/*!> number of seconds between 2 scans in the thread */
 } spectral_scan_t;
 
-/* mqtt service information */
+/*!> mqtt service information */
 typedef struct {
     void* session;
     char uptopic[64];
@@ -134,14 +136,14 @@ typedef struct {
     int  sock_up;				// up socket
     int  sock_down;				// down socket
     int  pull_interval;	        // send a PULL_DATA request every X seconds 
-    struct timeval push_timeout_half;       /* time-out value (in ms) for upstream datagrams */
+    struct timeval push_timeout_half;       /*!> time-out value (in ms) for upstream datagrams */
     struct timeval pull_timeout;
     mqttinfo_s *mqtt;
 } serv_net_s;
 
 LGW_LIST_HEAD(rxpkts_list, _rxpkts);     //定义一个数据链头，用来保存接收到的数据包         
 
-/*!
+/*!>!
  * \brief server是一个描述什么样服务的数据结构
  * 
  */
@@ -155,12 +157,12 @@ typedef struct _server {
     } info;
 
     struct {
-        filter_e fport;             /* 0/1/2, 0不处理，1如果过滤匹配数据库的，2转发匹配数据库的 */
-        filter_e devaddr;           /* 和fport相同 */
-        filter_e nwkid;             /* 和fport相同 */
-        bool fwd_valid_pkt;         /* packets with PAYLOAD CRC OK are forwarded */
-        bool fwd_error_pkt;         /* packets with PAYLOAD CRC ERROR are NOT forwarded */
-        bool fwd_nocrc_pkt;         /* packets with NO PAYLOAD CRC are NOT forwarded */
+        filter_e fport;             /*!> 0/1/2, 0不处理，1如果过滤匹配数据库的，2转发匹配数据库的 */
+        filter_e devaddr;           /*!> 和fport相同 */
+        filter_e nwkid;             /*!> 和fport相同 */
+        bool fwd_valid_pkt;         /*!> packets with PAYLOAD CRC OK are forwarded */
+        bool fwd_error_pkt;         /*!> packets with PAYLOAD CRC ERROR are NOT forwarded */
+        bool fwd_nocrc_pkt;         /*!> packets with NO PAYLOAD CRC are NOT forwarded */
     } filter;
 
     struct {
@@ -173,7 +175,7 @@ typedef struct _server {
     } state;
     
     struct {
-        pthread_t t_down;			// semtech down thread
+        pthread_t t_down;			// downstream thread
         pthread_t t_up;				// upstream thread
         sem_t sema;				    // semaphore for sending data
         bool stop_sig;
@@ -216,14 +218,15 @@ struct lbt_chan_stat {
 
 typedef struct {
     struct {
-        char gateway_id[17];	/* string form of gateway mac address */
-        char platform[24];	    /* platform definition */
-        char email[40];			/* used for contact email */
-        char description[64];	/* used for free form description */
-        uint64_t  lgwm;			/* Lora gateway MAC address */
+        char gateway_id[17];	/*!> string form of gateway mac address */
+        char platform[24];	    /*!> platform definition */
+        char email[40];			/*!> used for contact email */
+        char description[64];	/*!> used for free form description */
+        uint64_t  lgwm;			/*!> Lora gateway MAC address */
         uint32_t net_mac_h;
         uint32_t net_mac_l;
-        uint8_t status_index;       /* 网络状态记录次数，默认是15条记录 */
+        uint8_t service_count;  /*!> count of service */
+        bool network_status;    /*!> If Gateway networking */
     } info;
 
     struct {
@@ -239,47 +242,61 @@ typedef struct {
     struct {
         bool     radiostream_enabled;	
         bool     ghoststream_enabled;	
-        bool     td_enabled;              /* if enable time diff form UTC */	
-        bool     wd_enabled;		      /* if watchdog enabled   */
-        bool     mac_decode;             /* if mac header decode for abp */
-        bool     mac2file;                /* if payload text save to file */
-        bool     mac2db;                  /* if payload text save to database */
-        bool     custom_downlink;         /* if make a custome downlink to node */
-        time_t   last_loop;               /* timestamp for watchdog */
-        uint32_t time_interval;           /* time interval for send status(seconds) */
-        char   time_diff[8];               /* time diff of UTC, UTC + diff = TZ */
+        bool     delay_enabled;	
+        bool     td_enabled;              /*!> if enable time diff form UTC */	
+        bool     wd_enabled;		      /*!> if watchdog enabled   */
+        bool     mac_decode;              /*!> if mac header decode for abp */
+        bool     mac2file;                /*!> if payload text save to file */
+        bool     mac2db;                  /*!> if payload text save to database */
+        bool     custom_downlink;         /*!> if make a custome downlink to node */
+        time_t   last_loop;               /*!> timestamp for watchdog */
+        uint32_t time_interval;           /*!> time interval for send status(seconds) */
+        char   time_diff[8];              /*!> time diff of UTC, UTC + diff = TZ */
         char   ghost_host[32];
         char   ghost_port[16];
+        char   delay_db_path[64];
         region_s   region;
-        uint32_t autoquit_threshold;/* enable auto-quit after a number of non-acknowledged PULL_DATA (0 = disabled) */
+        uint32_t autoquit_threshold;/*!> enable auto-quit after a number of non-acknowledged PULL_DATA (0 = disabled) */
     } cfg;
 
-    /* GPS configuration and synchronization */
     struct {
-        char   gps_tty_path[64];        /* path of the TTY port GPS is connected on */
+        bool        as_relay;                /*!> relay gateway */
+        bool        has_relay;               /*!> nomal gateway will receive data from relay gateway */
+        char        tty_path[64];            /*!> tty port for relay device (sx126x) */
+        int         tty_fd;                  /*!> uart open fd  for relay device */
+        uint32_t    tty_baude;               /*!> bauderate */
+        uint32_t    freq_hz;                 /*!> relay channel equal to if_chain_8 (loar service channel) */
+        bool        invert_pol;
+        uint8_t     bw;      
+        uint8_t     sf;       
+    } relay;
+
+    /*!> GPS configuration and synchronization */
+    struct {
+        char   gps_tty_path[64];        /*!> path of the TTY port GPS is connected on */
         int    gps_tty_fd;
-        bool   gps_enabled;		        /* controls the use of the GPS                   */
-        bool   time_ref;		        /* controls the time refer from gps              */
-        bool   gps_ref_valid;           /* is GPS reference acceptable (ie. not too old) */
+        bool   gps_enabled;		        /*!> controls the use of the GPS                   */
+        bool   time_ref;		        /*!> controls the time refer from gps              */
+        bool   gps_ref_valid;           /*!> is GPS reference acceptable (ie. not too old) */
         bool   gps_fake_enable;
-        struct tref time_reference_gps; /* time reference used for UTC <-> timestamp conversion */
-        struct coord_s reference_coord; /* Reference coordinates, for broadcasting (beacon) */
-        bool   gps_coord_valid;         /* could we get valid GPS coordinates? */
-        struct coord_s meas_gps_coord;  /* GPS position of the gateway */
-        struct coord_s meas_gps_err;    /* GPS position of the gateway */
-        /* GPS time reference */
-        pthread_mutex_t mx_timeref;	    /* control access to GPS time reference */
-        pthread_mutex_t mx_meas_gps;	/* control access to the GPS statistics */
+        struct tref time_reference_gps; /*!> time reference used for UTC <-> timestamp conversion */
+        struct coord_s reference_coord; /*!> Reference coordinates, for broadcasting (beacon) */
+        bool   gps_coord_valid;         /*!> could we get valid GPS coordinates? */
+        struct coord_s meas_gps_coord;  /*!> GPS position of the gateway */
+        struct coord_s meas_gps_err;    /*!> GPS position of the gateway */
+        /*!> GPS time reference */
+        pthread_mutex_t mx_timeref;	    /*!> control access to GPS time reference */
+        pthread_mutex_t mx_meas_gps;	/*!> control access to the GPS statistics */
     } gps;
 
     struct {
-        bool   lbt_tty_enabled;         /* enable LBT */
-        char   lbt_tty_path[64];        /* path of the TTY port LBT is connected on */
-        int    lbt_tty_fd;              /* LBT fd */
-        int8_t lbt_rssi_target;         /* RSSI threshold to detect if channel is busy or not (dBm) */
-        uint32_t lbt_tty_baude;         /* bauderate */
+        bool   lbt_tty_enabled;         /*!> enable LBT */
+        char   lbt_tty_path[64];        /*!> path of the TTY port LBT is connected on */
+        int    lbt_tty_fd;              /*!> LBT fd */
+        int8_t lbt_rssi_target;         /*!> RSSI threshold to detect if channel is busy or not (dBm) */
+        uint32_t lbt_tty_baude;         /*!> bauderate */
         uint32_t lbt_freq_hz;               
-        uint16_t lbt_scan_time_ms;      /* scan time for LBT */
+        uint16_t lbt_scan_time_ms;      /*!> scan time for LBT */
         struct lbt_chan_stat lbt_stat[16];
     } lbt;
 
@@ -292,24 +309,24 @@ typedef struct {
     } tx;
 
     struct {
-        uint32_t beacon_period;    /* set beaconing period, must be a sub-multiple of 86400, the nb of sec in a day */
-        uint32_t beacon_freq_hz;   /* set beacon TX frequency, in Hz */
-        uint8_t  beacon_freq_nb;   /* set number of beaconing channels beacon */
-        uint32_t beacon_freq_step; /* set frequency step between beacon channels, in Hz */
-        uint8_t  beacon_datarate;  /* set beacon datarate (SF) */
-        uint32_t beacon_bw_hz;     /* set beacon bandwidth, in Hz */
-        int8_t   beacon_power;     /* set beacon TX power, in dBm */
-        uint8_t  beacon_infodesc;  /* set beacon information descriptor */
+        uint32_t beacon_period;    /*!> set beaconing period, must be a sub-multiple of 86400, the nb of sec in a day */
+        uint32_t beacon_freq_hz;   /*!> set beacon TX frequency, in Hz */
+        uint8_t  beacon_freq_nb;   /*!> set number of beaconing channels beacon */
+        uint32_t beacon_freq_step; /*!> set frequency step between beacon channels, in Hz */
+        uint8_t  beacon_datarate;  /*!> set beacon datarate (SF) */
+        uint32_t beacon_bw_hz;     /*!> set beacon bandwidth, in Hz */
+        int8_t   beacon_power;     /*!> set beacon TX power, in dBm */
+        uint8_t  beacon_infodesc;  /*!> set beacon information descriptor */
         uint32_t meas_nb_beacon_queued;
         uint32_t meas_nb_beacon_sent;
         uint32_t meas_nb_beacon_rejected;
     } beacon;
 
     struct {
-        bool logger_enabled;       /* controls the activation of more logging */
-        int  debug_mask;           /* enabled debugging options */
-        char *logfile;             /* path to logfile */
-        uint32_t nb_pkt_log[LGW_IF_CHAIN_NB];  /* [CH][SF] */
+        bool logger_enabled;            /*!> controls the activation of more logging */
+        uint16_t  debug_mask;           /*!> enabled debugging options */
+        char *logfile;                  /*!> path to logfile */
+        uint32_t nb_pkt_log[LGW_IF_CHAIN_NB];  
         uint32_t nb_pkt_received_lora;
         uint32_t nb_pkt_received_fsk;
         uint32_t nb_pkt_received_ref[16];
@@ -317,8 +334,6 @@ typedef struct {
         pthread_mutex_t mx_report;	      // control access to the queue for each server
     } log;
 
-    pthread_mutex_t mx_bind_lock;	      // control access to the rxpkts bind
-	
 #ifdef SX1302MOD
 	spectral_scan_t spectral_scan_params; //Spectral Scan
 #endif
@@ -329,7 +344,7 @@ typedef struct {
 } gw_s;
 
 #define INIT_GW gw_s GW = {   .info.lgwm = 0,                                        \
-                              .info.status_index = 15,                               \
+                              .info.service_count = 0,                               \
                               .hal.board = "sx1302",                                 \
                               .hal.confs = { .gwcfg = "/etc/lora/local_conf.json",   \
                                              .sxcfg = "/etc/lora/global_conf.json"}, \
@@ -337,10 +352,12 @@ typedef struct {
                               .hal.mx_xcorr   = PTHREAD_MUTEX_INITIALIZER,           \
                               .hal.xtal_correct_ok = false,                          \
                               .hal.xtal_correct = 1.0,                               \
+                              .info.network_status = false,                          \
                               .cfg.wd_enabled = false,                               \
                               .cfg.td_enabled = false,                               \
                               .cfg.radiostream_enabled = true,                       \
                               .cfg.ghoststream_enabled = false,                      \
+                              .cfg.delay_enabled = false,                            \
                               .cfg.autoquit_threshold = 0,                           \
                               .cfg.mac_decode = false,                               \
                               .cfg.mac2file = false,                                 \
@@ -348,6 +365,13 @@ typedef struct {
                               .cfg.custom_downlink = false,                          \
                               .cfg.time_interval = 30,                               \
                               .cfg.time_diff = "8",                                  \
+                              .relay.as_relay = false,                               \
+                              .relay.has_relay = false,                              \
+                              .relay.tty_baude = 9600,                               \
+                              .relay.invert_pol = true,                              \
+                              .relay.freq_hz = 868300000,                            \
+                              .relay.bw = 0,                                         \
+                              .relay.sf = 8,                                         \
                               .gps.gps_tty_path[0] = 0,                              \
                               .gps.time_ref = false,                                 \
                               .gps.mx_timeref  = PTHREAD_MUTEX_INITIALIZER,          \
@@ -374,14 +398,13 @@ typedef struct {
                               .log.nb_pkt_received_lora  = 0,                        \
                               .log.nb_pkt_received_fsk   = 0,                        \
                               .log.mx_report = PTHREAD_MUTEX_INITIALIZER,            \
-                              .mx_bind_lock = PTHREAD_MUTEX_INITIALIZER,             \
                               .serv_list = LGW_LIST_HEAD_NOLOCK_INIT_VALUE,          \
                               .rxpkts_list = LGW_LIST_HEAD_INIT_VALUE,               \
                           }
 
 #define DECLARE_GW extern gw_s GW
 
-/*
+/*!>
  *
  */
 int parsecfg();

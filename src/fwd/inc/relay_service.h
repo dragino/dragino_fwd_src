@@ -21,27 +21,13 @@
 
 /*!
  * \file
+ * \brief Persistant data storage 
  */
 
-#ifndef _GWPKT_PROTO_H
-#define _GWPKT_PROTO_H
+#ifndef _RELAY_PROTO_H
+#define _RELAY_PROTO_H
 
-/*!下发的数据结据，下发的格式是： devaddr, txmode, payload format, payload
-* txmode: time, imme
-* format: txt, hex
-**/
-
-#define DEFAULT_PAYLOAD_SIZE        256
-#define DEFAULT_DOWN_FPORT          2
-
-#define DNPATH                      "/var/iot/push" 
-
-#define UP                          0
-#define DOWN                        1
-
-#define FCNT_GAP                    8
-
-int pkt_start(serv_s*);
-void pkt_stop(serv_s*);
+int relay_start(serv_s* serv);
+int relay_stop(serv_s* serv);
 
 #endif						

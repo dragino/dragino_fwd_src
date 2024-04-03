@@ -1,4 +1,4 @@
-/*
+/*!>
  *  ____  ____      _    ____ ___ _   _  ___  
  *  |  _ \|  _ \    / \  / ___|_ _| \ | |/ _ \ 
  *  | | | | |_) |  / _ \| |  _ | ||  \| | | | |
@@ -19,7 +19,7 @@
  *
  */
 
-/*!
+/*!>!
  * \file
  * \brief Utility functions
  */
@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "fwd.h"
 #include "utilities.h"
@@ -113,7 +114,7 @@ void str2hex(uint8_t* dest, char* src, int len) {
 }
 
 static uint8_t hex2int(char c) {
-    /* 0x30 - 0x39 (0 - 9) 
+    /*!> 0x30 - 0x39 (0 - 9) 
      * 0x61 - 0x66 (a - f) 
      * 0x41 - 0x46 (A - F)
      * */
@@ -125,6 +126,14 @@ static uint8_t hex2int(char c) {
         return (uint8_t) (c - 0x57);
     } else {
         return 0;
+    }
+}
+
+void bin2hex (char *in, char *out, int len) {
+    char *ptr = out;
+    while (len--) {
+        sprintf(ptr, "%02x", *in++);
+        ptr += 2;
     }
 }
 
@@ -188,7 +197,7 @@ int lgw_pthread_create_stack(pthread_t *thread, pthread_attr_t *attr, void *(*st
 	}
 
 #if defined(__linux__) || defined(__FreeBSD__)
-	/* On Linux and FreeBSD , pthread_attr_init() defaults to PTHREAD_EXPLICIT_SCHED,
+	/*!> On Linux and FreeBSD , pthread_attr_init() defaults to PTHREAD_EXPLICIT_SCHED,
 	   which is kind of useless. Change this here to
 	   PTHREAD_INHERIT_SCHED; that way the -p option to set realtime
 	   priority will propagate down to new threads by default.
@@ -196,17 +205,17 @@ int lgw_pthread_create_stack(pthread_t *thread, pthread_attr_t *attr, void *(*st
 	   PTHREAD_EXPLICIT_SCHED in the attr argument; instead they must set
 	   the priority afterwards with pthread_setschedparam(). */
 	if ((errno = pthread_attr_setinheritsched(attr, PTHREAD_INHERIT_SCHED)))
-		lgw_log(LOG_WARNING, "pthread_attr_setinheritsched: %s\n", strerror(errno));
+		MSG_DEBUG(LOG_WARNING, "pthread_attr_setinheritsched: %s\n", strerror(errno));
 #endif
 
 	if (!stacksize)
 		stacksize = LGW_STACKSIZE;
 
 	if ((errno = pthread_attr_setstacksize(attr, stacksize ? stacksize : LGW_STACKSIZE)))
-		lgw_log(LOG_WARNING, "pthread_attr_setstacksize: %s\n", strerror(errno));
+		MSG_DEBUG(LOG_WARNING, "pthread_attr_setstacksize: %s\n", strerror(errno));
 
-	if ((res = pthread_create(thread, attr, start_routine, data))) /* We're in lgw_pthread_create, so it's okay */
-	    lgw_log(LOG_ERROR, "%s->%s:%s:%d pthread_create: %s\n", caller, file, start_fn, line, strerror(res));
+	if ((res = pthread_create(thread, attr, start_routine, data))) /*!> We're in lgw_pthread_create, so it's okay */
+	    MSG_DEBUG(LOG_ERROR, "%s->%s:%s:%d pthread_create: %s\n", caller, file, start_fn, line, strerror(res));
 
     return res;
 }
@@ -226,7 +235,7 @@ int lgw_pthread_create_detached_stack(pthread_t *thread, pthread_attr_t *attr, v
 	}
 
 	if ((errno = pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED)))
-		lgw_log(LOG_WARNING, "pthread_attr_setdetachstate: %s\n", strerror(errno));
+		MSG_DEBUG(LOG_WARNING, "pthread_attr_setdetachstate: %s\n", strerror(errno));
 
 	res = lgw_pthread_create_stack(thread, attr, start_routine, data, stacksize, file, caller, line, start_fn);
 
@@ -247,32 +256,37 @@ void DO_CRASH_NORETURN lgw_do_crash(void)
 {
 #if defined(DO_CRASH)
 	abort();
-	/*
+	/*!>
 	 * Just in case abort() doesn't work or something else super
 	 * silly, and for Qwell's amusement.
 	 */
 	*((int *) 0) = 0;
-#endif	/* defined(DO_CRASH) */
+#endif	/*!> defined(DO_CRASH) */
 }
 
 void DO_CRASH_NORETURN __lgw_assert_failed(int condition, const char *condition_str, const char *file, int line, const char *function)
 {
-	/*
+	/*!>
 	 * Attempt to put it into the logger, but hope that at least
 	 * someone saw the message on stderr ...
 	 */
 	fprintf(stderr, "FRACK!, Failed assertion %s (%d) at line %d in %s of %s\n", condition_str, condition, line, function, file);
-	lgw_log(LOG_ERROR, file, line, function, "FRACK!, Failed assertion %s (%d)\n", condition_str, condition);
+	MSG_DEBUG(LOG_ERROR, file, line, function, "FRACK!, Failed assertion %s (%d)\n", condition_str, condition);
 
-	/* Generate a backtrace for the assert */
+	/*!> Generate a backtrace for the assert */
 	//lgw_log_backtrace();
 
-	/*
+	/*!>
 	 * Give the logger a chance to get the message out, just in case
 	 * we abort(), or Asterisk crashes due to whatever problem just
 	 * happened after we exit lgw_assert().
 	 */
 	usleep(1);
 	lgw_do_crash();
+}
+
+int Close(int fildes) {
+    if (fildes > 0)
+        close(fildes);
 }
 

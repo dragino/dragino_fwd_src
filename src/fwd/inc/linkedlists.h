@@ -158,11 +158,11 @@ struct name {								\
  * type \c struct \c entry.
  */
 #define LGW_LIST_HEAD_STATIC(name, type)				\
-struct name {								\
-	struct type *first;						\
-	struct type *last;						\
-    int         size;                       \
-	pthread_mutex_t lock;						\
+struct name {								            \
+	struct type *first;						            \
+	struct type *last;						            \
+    int         size;                                   \
+	pthread_mutex_t lock;						        \
 } name = LGW_LIST_HEAD_INIT_VALUE
 
 /*!

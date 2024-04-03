@@ -92,11 +92,21 @@
 #define XERR_FILT_COEF      256	/* coefficient for low-pass XTAL error tracking */
 
 #define GPS_REF_MAX_AGE     30	/* maximum admitted delay in seconds of GPS loss before considering latest GPS sync unusable */
-/* Number of seconds ellapsed between 01.Jan.1970 00:00:00 and 06.Jan.1980 00:00:00 */
+                                /* Number of seconds ellapsed between 01.Jan.1970 00:00:00 and 06.Jan.1980 00:00:00 */
 
 #define MAX_PTHREADS        3
-                                                                          
 
+#define IF_DELAY            31  /*!> DELAY channel */
+
+/*!> relay payload defined 
+ * Bytes  | Function
+ * :------:|---------------------------------------------------------------------
+ * 0      | payload direction 
+ * 1-end  | payload
+ */
+#define RELAY_UP  0x00          /*!> relay up payload send from as_relay gateway */
+#define RELAY_DN  0x01          /*!> relay down payload send from has_relay gateway */
+                                                                          
 /*!
  * \brief Register a function to be executed before Asterisk exits.
  * \param func The callback function to use.

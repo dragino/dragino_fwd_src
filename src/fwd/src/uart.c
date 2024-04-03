@@ -8,9 +8,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "logger.h"
+#include "fwd.h"
 #include "uart.h"
-
 
 static int safe_read(int fd, char *vptr, int len);
 
@@ -21,13 +20,13 @@ int uart_open(const char* path)
     fd = open(path, O_RDWR | O_NOCTTY | O_NDELAY);
     //fd = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd == -1) {
-        lgw_log(LOG_ERROR, "[LBT-TTY] uart open %s failed!", path);
+        //MSG_DEBUG(LOG_ERROR, "[TTY] uart open %s failed!", path);
         return -1;
     }
 
-    /*
+    /*!>
     if(fcntl(fd, F_SETFL, 0) < 0) {        
-        lgw_log(LOG_ERROR, "[LBT-TTY] fcntl setfl(0) failed!");
+        MSG_DEBUG(LOG_ERROR, "[LBT-TTY] fcntl setfl(0) failed!");
         return -1;
     }
     */
@@ -40,7 +39,7 @@ int uart_config(int fd, int baude, int c_flow, int bits, int parity, int stop)
     struct termios uart;
 
     if(tcgetattr(fd, &uart) != 0) {
-        lgw_log(LOG_ERROR, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
+        MSG_DEBUG(LOG_ERROR, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
         return -1;
     }
 
@@ -152,7 +151,7 @@ int uart_config(int fd, int baude, int c_flow, int bits, int parity, int stop)
     tcflush(fd, TCIFLUSH);                              //清空输入缓冲区
 
     if (tcsetattr(fd, TCSANOW, &uart) != 0) {            //激活配置
-        lgw_log(LOG_ERROR, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
+        MSG_DEBUG(LOG_ERROR, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
         return -1;
     }
 
@@ -174,10 +173,10 @@ static int safe_read(int fd, char* vptr, int len)
             } else if(nread == 0) {
                 break;
             } else if (nread < 0) {
-                //lgw_log(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
+                //MSG_DEBUG(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
                 break;
             }
-            //lgw_log(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
+            //MSG_DEBUG(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
         }
         left -= nread;
         ptr += nread;
@@ -192,21 +191,21 @@ int uart_read(int fd, char* r_buf, int lenth, int timeout_ms)
     struct timeval tv;
     ssize_t cnt = 0;
 
-    /*将读文件描述符加入描述符集合*/
+    /*!>将读文件描述符加入描述符集合*/
     FD_ZERO(&rfds);
     FD_SET(fd, &rfds);
 
-    /*设置超时为timout_ms, 默认 1s */
+    /*!>设置超时为timout_ms, 默认 1s */
     tv.tv_sec = timeout_ms/1000;
     tv.tv_usec = (timeout_ms - tv.tv_sec * 1000) * 1000;
     
     ret = select(fd + 1, &rfds, NULL, NULL, &tv);
     switch (ret) {
         case -1:
-            lgw_log(LOG_DEBUG, "~DEBUG [TTY-UART] select error!\n");
+            MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY-UART] select error!\n");
             break;
         case 0:
-            lgw_log(LOG_DEBUG, "~DEBUG [TTY-UART] select time over!\n");
+            MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY-UART] select time over!\n");
             break;
         default:
             cnt = safe_read(fd, r_buf, lenth);
@@ -255,16 +254,16 @@ int uart_read_bak(int fd, char* buf, int len, int timeout_ms)
         ret = select(fd + 1, &rset, NULL, NULL, &tv);
         if (ret <= 0) {
             if (ret == 0) {
-                lgw_log(LOG_DEBUG, "DEBUG~ [TTY] read from uart timeout\n");
+                MSG_DEBUG(LOG_DEBUG, "DEBUG~ [TTY] read from uart timeout\n");
                 return -1;
             }
 
             if (errno == EINTR) {
-                //lgw_log(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
+                //MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
                 continue;
             }
 
-            //lgw_log(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
+            //MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
             return -errno;
 
         } else {
