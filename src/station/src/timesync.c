@@ -220,6 +220,8 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
         }
     }
 
+    ustime_t delay = TIMESYNC_RADIO_INTV;
+
     if( abs(drift_ppm) > stats->drift_thres ) {
         stats->excessive_drift_cnt += 1;
         if( (stats->excessive_drift_cnt % QUICK_RETRIES) == 0 ) {
@@ -228,10 +230,14 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
         }
         if( stats->excessive_drift_cnt >= 2*QUICK_RETRIES )
             stats->drift_thres = MAX_MCU_DRIFT_THRES;  // reset - we might be stuck on a very low value
+        if( stats->excessive_drift_cnt >= 3*QUICK_RETRIES ) {
+            delay = delay/2;
+            goto done;
+        }
         return TIMESYNC_RADIO_INTV/2;
     }
+
     stats->excessive_drift_cnt = 0;
-    ustime_t delay = TIMESYNC_RADIO_INTV;
 
     // Only txunit#0 can have PPS or we're not tracking a PPS
     if( txunit != 0 )
