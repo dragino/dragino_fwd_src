@@ -614,6 +614,13 @@ ustime_t s2e_nextTxAction (s2ctx_t* s2ctx, u1_t txunit) {
     txjob_t* curr = txq_idx2job(&s2ctx->txq, phead[0]);
     ustime_t txdelta = curr->txtime - now;
 
+    if (curr->deveui == 0 && (curr->diid == 0)) {
+        txq_unqJob(&s2ctx->txq, phead);
+        txq_freeJob(&s2ctx->txq, curr);
+        LOG(MOD_S2E|DEBUG, "Tx drop diid=%ld", curr->diid);
+        goto again;
+    }
+
     if( (curr->txflags & TXFLAG_TXING) ) {
         // Head job in mode TXING
         ustime_t txend = curr->txtime + curr->airtime;
@@ -1309,6 +1316,12 @@ void handle_dnframe (s2ctx_t* s2ctx, ujdec_t* D) {
         }
         }
     }
+
+    if (txjob->deveui == 0 && (txjob->diid == 0)) {
+        LOG(MOD_S2E|WARNING, "Return from zero deveui and diid ");
+        return;
+    }
+
     if( (flags & 0x40) == 0 ) {
         txjob->rctx = ral_xtime2rctx(txjob->xtime);
         flags |= 0x40;
@@ -1317,6 +1330,7 @@ void handle_dnframe (s2ctx_t* s2ctx, ujdec_t* D) {
         LOG(MOD_S2E|WARNING, "Some mandatory fields are missing (flags=0x%X)", flags);
         return;
     }
+            
     txjob->txtime = ts_xtime2ustime(txjob->xtime);
     if( txjob->xtime == 0 || txjob->txtime == 0 ) {
         LOG(MOD_S2E|ERROR, "%J - dropped due to time conversion problems (MCU/GPS out of sync, obsolete input) - xtime=%ld", txjob, txjob->xtime);
@@ -1457,6 +1471,12 @@ void handle_dnmsg (s2ctx_t* s2ctx, ujdec_t* D) {
         }
         }
     }
+
+    if (txjob->deveui == 0 && (txjob->diid == 0)) {
+        LOG(MOD_S2E|WARNING, "Return from zero deveui and diid ");
+        return;
+    }
+
     if ( (flags & 0x10) != 0x10) {
         // Map zero to one
         txjob->rxdelay = 1;

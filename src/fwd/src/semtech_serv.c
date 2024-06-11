@@ -83,7 +83,7 @@ int semtech_start(serv_s* serv) {
 
     char family[96], status_value[32];  
     snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
-    snprintf(status_value, sizeof(status_value), "%u:offline", time(NULL));
+    snprintf(status_value, sizeof(status_value), "%ld:offline", time(NULL));
     lgw_db_put(family, "network1", status_value);
 
     return 0;
@@ -107,7 +107,7 @@ int semtech_stop(serv_s* serv) {
     lgw_db_del("service/lorawan", serv->info.name);
     lgw_db_del("thread", serv->info.name);
     snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
-    snprintf(status_value, sizeof(status_value), "%u:offline", time(NULL));
+    snprintf(status_value, sizeof(status_value), "%ld:offline", time(NULL));
     lgw_db_put(family, "network1", status_value);
     return 0;
 }
@@ -192,7 +192,7 @@ static void thread_push_up(void* arg) {
             if (p->payload[0] & RELAY_DN) continue;  /*!> RELAY_DN is myself downlink, haha! */
 
             if (GW.relay.has_relay) {   /*!> Ooh! receive from RELAY */
-                lgw_log(LOG_DEBUG, "%s[RELAY] packet receive from relay! \n", DEBUGMSG, DEBUGMSG);
+                lgw_log(LOG_DEBUG, "%s[RELAY] packet receive from relay! \n", DEBUGMSG);
                 p->count_us = (uint32_t)p->payload[1];
                 p->count_us |= (uint32_t)p->payload[2]<<8;
                 p->count_us |= (uint32_t)p->payload[3]<<16;
@@ -601,6 +601,12 @@ static void thread_push_up(void* arg) {
     if (serv->net->sock_up == -1)    
         serv->net->sock_up = init_sock((char *)&serv->net->addr, (char *)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
 
+    if (serv->net->sock_up == -1) {    
+        lgw_log(LOG_PKT, "%s[PKTS][%s-UP] send blocking ... %sDisconnect!%s\n", ERRMSG, serv->info.name, RED, NONE); 
+        lgw_free(serv_ct);
+        return;
+    }
+
     if (send(serv->net->sock_up, (void *)buff_up, buff_index, 0) == -1) {
         lgw_log(LOG_PKT, "%s[PKTS][%s-UP] sending: %s\n", ERRMSG, serv->info.name, strerror(errno)); 
         lgw_free(serv_ct);
@@ -861,7 +867,7 @@ static void semtech_pull_down(void* arg) {
             if (status_index > 15)  
                 status_index = 1;
             snprintf(db_key, sizeof(db_key), "network%i", status_index++);
-            snprintf(status_value, sizeof(status_value), "%u:%s", time(NULL), serv->state.connecting ? "online" : "offline");
+            snprintf(status_value, sizeof(status_value), "%ld:%s", time(NULL), serv->state.connecting ? "online" : "offline");
             lgw_db_put(family, db_key, status_value);
         }
 
@@ -1358,7 +1364,7 @@ static void semtech_pull_down(void* arg) {
                     /*!> this RF power is not supported, throw a warning, and use the closest lower power supported */
                     warning_result = JIT_ERROR_TX_POWER;
                     warning_value = (int32_t)GW.tx.txlut[txpkt.rf_chain].lut[tx_lut_idx].rf_power;
-                    lgw_log(LOG_WARNING, "%s[PKTS][%s-DOWN] %sRequested TX power is not supported (%ddBm), actual power used: %ddBm\n", WARNMSG, serv->info.name, txpkt.rf_power, warning_value);
+                    lgw_log(LOG_WARNING, "%s[PKTS][%s-DOWN] Requested TX power is not supported (%ddBm), actual power used: %ddBm\n", WARNMSG, serv->info.name, txpkt.rf_power, warning_value);
                     txpkt.rf_power = GW.tx.txlut[txpkt.rf_chain].lut[tx_lut_idx].rf_power;
                 }
             }

@@ -120,7 +120,7 @@ static void gwtraf_push_up(void* arg) {
             continue;
         }
 
-        lgw_log(LOG_INFO, "[INFO~][THREAD][%s] Starting...\n", serv->info.name, nb_pkt);
+        lgw_log(LOG_INFO, "[INFO~][THREAD][%s] Starting...\n", serv->info.name);
 
 		//TODO: is this okay, can time be recruited from the local system if gps is not working?
 		/*!> get a copy of GPS time reference (avoid 1 mutex per packet) */

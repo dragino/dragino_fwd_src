@@ -113,7 +113,7 @@ int delay_start(serv_s* serv) {
 		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare get_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
         } else if (sqlite3_prepare_v2(delay_db, del_pkts, -1, &del_pkts_stmt, 0) != SQLITE_OK) {
 		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare del_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
-        } else if (sqlite3_prepare_v2(delay_db, "SELECT COUNT(*) FROM test_table", -1, &count_pkts_stmt, 0) != SQLITE_OK) {
+        } else if (sqlite3_prepare_v2(delay_db, "SELECT COUNT(*) FROM delay_pkts", -1, &count_pkts_stmt, 0) != SQLITE_OK) {
 		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare count_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
         } else 
             has_db_storage = true;
@@ -195,7 +195,7 @@ int delay_pkt_get(int max, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the n
 
         uint32_t id = 0; 
         uint32_t tmst = 0;
-        void *rxpkt = NULL;
+        const void *rxpkt = NULL;
         int pkts = 0;
 
         sqlite3_bind_int(get_pkts_stmt, 1, max);
@@ -241,15 +241,12 @@ static void delay_package_thread(void* arg) {
 
         sem_wait(&serv->thread.sema);
 
-        if (GW.info.network_status) 
-            continue;
-
         do {
             serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
             serv_ct->serv = serv;
             serv_ct->nb_pkt = get_rxpkt(serv_ct);     
                                                       
-            if (serv_ct->nb_pkt == 0) { 
+            if (GW.info.network_status || (serv_ct->nb_pkt == 0)) { 
                 lgw_free(serv_ct);
                 break;
             }
@@ -290,6 +287,8 @@ static void delay_package_thread(void* arg) {
             }
 
             lgw_free(serv_ct);
+
+            wait_ms(100);
 
         } while (GW.rxpkts_list.size > 1 && (!serv->thread.stop_sig));
     }

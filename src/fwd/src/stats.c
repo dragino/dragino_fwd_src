@@ -399,7 +399,7 @@ static void semtech_report(serv_s *serv) {
         //lgw_db_put("/fwd/pkts/report", timestr, serv->report->status_report);
 	}
 
-	lgw_log(LOG_REPORT, "\033[32m ############## [%s] REPORT ENDED ###############033[m\n", serv->info.name);
+	lgw_log(LOG_REPORT, "\033[32m ############## [%s] REPORT ENDED ###############\033[m\n", serv->info.name);
     sem_post(&serv->thread.sema);
 
 

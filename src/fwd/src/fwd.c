@@ -479,7 +479,7 @@ int main(int argc, char *argv[]) {
 	/*!> display version informations */
 	lgw_log(LOG_INFO, "%s*** Dragino Packet Forwarder for Lora Gateway ***%s\n", GREEN, NONE);
 	lgw_log(LOG_INFO, "%s*** LoRa concentrator HAL library version info %s ***%s\n", GREEN, lgw_version_info(), NONE);
-    lgw_log(LOG_INFO, "%s*** LoRa radio type of board is: %s ***%s\n", GREEN, GW.hal.board);
+    lgw_log(LOG_INFO, "%s*** LoRa radio type of board is: %s ***\n", GREEN, GW.hal.board);
 	lgw_log(LOG_INFO, "%s*** Platform bytes endian is: %s ***%s\n", GREEN, isBigEndian() ? "\"BIGENDIAN\"" : "\"LITTLEENDIAN\"", NONE);
 
 	/*!> configure signal handling */
@@ -500,12 +500,12 @@ int main(int argc, char *argv[]) {
 
     if (access(GW.hal.confs.gwcfg, R_OK) == 0 && access(GW.hal.confs.sxcfg, R_OK) == 0) { /*!> if there is a global conf, parse it  */
         if (parsecfg()) {
-            lgw_log(LOG_ERROR, "%s[FWD] failed to parse configuration file\n");
+            lgw_log(LOG_ERROR, "%s[FWD] failed to parse configuration file\n", ERRMSG);
 		    exit_sig = true;
             exit(EXIT_FAILURE);
         }
     } else {
-        lgw_log(LOG_ERROR, "%s[FWD] failed to find any configuration file: %s %s\n", GW.hal.confs.gwcfg, GW.hal.confs.sxcfg);
+        lgw_log(LOG_ERROR, "%s[FWD] failed to find any configuration file: %s %s\n", ERRMSG, GW.hal.confs.gwcfg, GW.hal.confs.sxcfg);
 		exit_sig = true;
         exit(EXIT_FAILURE);
     }
@@ -525,21 +525,21 @@ int main(int argc, char *argv[]) {
 
     if (GW.lbt.lbt_tty_enabled) {
         if (lgw_pthread_create(&thrid_lbt_scan, NULL, (void *(*)(void *))thread_lbt_scan, NULL))
-            lgw_log(LOG_ERROR, "%s[FWD] impossible to create lbt scan thread\n");
+            lgw_log(LOG_ERROR, "%s[FWD] impossible to create lbt scan thread\n", ERRMSG);
     }
 
     if (GW.relay.tty_path[0] != '\0') {  /*!> do not try to open relay device if no path set */
         GW.relay.tty_fd = uart_open(GW.relay.tty_path);
         if (GW.relay.tty_fd != -1) {
             uart_config(GW.relay.tty_fd, GW.relay.tty_baude, 9, 9, 9, 9);  /*!> 9 use default */
-            uint8_t uart_delay = 20;  /*!> 20ms delay ? */
+            int uart_delay = 500;  /*!> 500ms delay ? */
             char buffer[64] = {'\0'};
 
             /*!> relay FREQ */
             snprintf(buffer, sizeof(buffer), "AT+FRE=%.3f,%.3f\r\n", (float)(GW.relay.freq_hz/1000000.0), (float)(GW.relay.freq_hz/1000000.0));
             lgw_log(LOG_INFO, "%s[RELAY] AT COMAND: %s \n", INFOMSG, buffer);
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET FREQ of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET FREQ of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> relay BW */
             wait_ms(uart_delay);
@@ -547,7 +547,7 @@ int main(int argc, char *argv[]) {
             snprintf(buffer, sizeof(buffer), "AT+BW=%u,%u\r\n", GW.relay.bw, GW.relay.bw);
             lgw_log(LOG_INFO, "%s[RELAY] AT COMAND: %s \n", INFOMSG, buffer);
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET BW of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET BW of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> relay SF */
             wait_ms(uart_delay);
@@ -555,35 +555,35 @@ int main(int argc, char *argv[]) {
             snprintf(buffer, sizeof(buffer), "AT+SF=%u,%u\r\n", GW.relay.sf, GW.relay.sf);
             lgw_log(LOG_INFO, "%s[RELAY] AT COMAND: %s \n", INFOMSG, buffer);
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET SF of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET SF of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> PREAMBLE */
             wait_ms(uart_delay);
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "AT+PREAMBLE=8,8\r\n");
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET PREAMBLE of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET PREAMBLE of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> relay POWER */
             wait_ms(uart_delay);
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "AT+POWER=20\r\n");
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET POWER of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET POWER of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> relay CR */
             wait_ms(uart_delay);
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "AT+CR=1,1\r\n"); 
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET CR of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET CR of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> relay CRC */
             wait_ms(uart_delay);
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "AT+CRC=1,1\r\n");
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET CRC of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET CRC of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> relay IQ */
             /*
@@ -600,31 +600,31 @@ int main(int argc, char *argv[]) {
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "AT+SYNCWORD=1\r\n");
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET SYNCWORD of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET SYNCWORD of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> relay HEADER */
             wait_ms(uart_delay);
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "AT+HEADER=0,0\r\n"); 
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET HEADER of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET HEADER of relay channel (cannot send command to uart)\n", ERRMSG);
 
             /*!> RXMode */
             wait_ms(uart_delay);
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "AT+RXMOD=0,0\r\n");
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] SET RXMODE of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] SET RXMODE of relay channel (cannot send command to uart)\n", ERRMSG);
 
             wait_ms(uart_delay);
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, sizeof(buffer), "ATZ\r\n"); 
             if (uart_send(GW.relay.tty_fd, buffer, strlen(buffer) + 1) == -1) 
-                lgw_log(LOG_ERROR, "%s[RELAY] AT ATZ of relay channel (cannot send command to uart)\n");
+                lgw_log(LOG_ERROR, "%s[RELAY] AT ATZ of relay channel (cannot send command to uart)\n", ERRMSG);
         } else {
             GW.relay.as_relay = false;
             GW.relay.has_relay = false;
-            lgw_log(LOG_ERROR, "%s[RELAY] cannot open tty path, ignore!\n");
+            lgw_log(LOG_ERROR, "%s[RELAY] cannot open tty path, ignore!\n", ERRMSG);
         }
     }
 
@@ -652,7 +652,7 @@ int main(int argc, char *argv[]) {
 	if (GW.cfg.radiostream_enabled == true) {
 		lgw_log(LOG_INFO, "%s[FWD] Starting the concentrator\n", INFOMSG);
         if (system("/usr/bin/reset_lgw.sh start") != 0) {
-            lgw_log(LOG_ERROR, "%s[FWD] failed to start SX130X, Please start again!\n");
+            lgw_log(LOG_ERROR, "%s[FWD] failed to start SX130X, Please start again!\n", ERRMSG);
 		    exit_sig = true;
             exit(EXIT_FAILURE);
         } 
@@ -662,12 +662,7 @@ int main(int argc, char *argv[]) {
 			lgw_log(LOG_INFO, "%s[FWD] concentrator started, radio packets can now be received.\n", INFOMSG);
 		} else {
             lgw_db_put("loraradio", "radiostream", "hangup");
-			lgw_log(LOG_ERROR, "%s[FWD] failed to start the concentrator\n");
-            if (system("/usr/bin/reset_lgw.sh stop") != 0) {
-                lgw_log(LOG_ERROR, "%s[main] failed to stop SX130X, run script reset_lgw.sh stop!\n");
-		        exit_sig = true;
-                exit(EXIT_FAILURE);
-            } 
+			lgw_log(LOG_ERROR, "%s[FWD] failed to start the concentrator\n", ERRMSG);
 		    exit_sig = true;
 			exit(EXIT_FAILURE);
 		}
@@ -683,12 +678,12 @@ int main(int argc, char *argv[]) {
 	}
 
     if (lgw_pthread_create(&thrid_up, NULL, (void *(*)(void *))thread_up, NULL))
-		lgw_log(LOG_ERROR, "%s[FWD] impossible to create data up thread\n");
+		lgw_log(LOG_ERROR, "%s[FWD] impossible to create data up thread\n", ERRMSG);
     else
         lgw_db_put("thread", "thread_up", "running");
 
     if (lgw_pthread_create(&thrid_recycle, NULL, (void *(*)(void *))thread_rxpkt_recycle, NULL))
-		lgw_log(LOG_ERROR, "%s[FWD] impossible to create rxpkt recycle thread\n");
+		lgw_log(LOG_ERROR, "%s[FWD] impossible to create rxpkt recycle thread\n", ERRMSG);
     else
         lgw_db_put("thread", "thread_rxpkt_recycle", "running");
 
@@ -699,13 +694,13 @@ int main(int argc, char *argv[]) {
 	// Timer synchronization needed for downstream ...
 #ifdef SX1301MOD
         if (lgw_pthread_create(&thrid_timersync, NULL, (void *(*)(void *))thread_timersync, NULL))
-            lgw_log(LOG_ERROR, "%s[FWD] impossible to create Timer Sync thread\n");
+            lgw_log(LOG_ERROR, "%s[FWD] impossible to create Timer Sync thread\n", ERRMSG);
         else
             lgw_db_put("thread", "thread_timersync", "running");
 #endif
 
     if (lgw_pthread_create(&thrid_jit, NULL, (void *(*)(void *))thread_jit, NULL)) {
-        lgw_log(LOG_ERROR, "%s[FWD] impossible to create JIT thread\n");
+        lgw_log(LOG_ERROR, "%s[FWD] impossible to create JIT thread\n", ERRMSG);
 		exit_sig = true;
         exit(EXIT_FAILURE);
 	}
@@ -717,7 +712,7 @@ int main(int argc, char *argv[]) {
     if (GW.spectral_scan_params.enable == true) {
         i = lgw_pthread_create(&thrid_ss, NULL, (void * (*)(void *))thread_spectral_scan, NULL);
         if (i != 0) {
-            lgw_log(LOG_ERROR, "%s[FWD] impossible to create Spectral Scan thread\n");
+            lgw_log(LOG_ERROR, "%s[FWD] impossible to create Spectral Scan thread\n", ERRMSG);
 		    exit_sig = true;
             exit(EXIT_FAILURE);
         }
@@ -727,13 +722,13 @@ int main(int argc, char *argv[]) {
 	/*!> spawn thread to manage GPS */
 	if (GW.gps.gps_enabled == true) {
 		if (lgw_pthread_create(&thrid_gps, NULL, (void *(*)(void *))thread_gps, NULL))
-			lgw_log(LOG_ERROR, "%s[FWD] impossible to create GPS thread\n");
+			lgw_log(LOG_ERROR, "%s[FWD] impossible to create GPS thread\n", ERRMSG);
         else
             lgw_db_put("thread", "thread_gps", "running");
 
         if (GW.gps.time_ref == true) {
             if (pthread_create(&thrid_valid, NULL, (void *(*)(void *))thread_valid, NULL))
-                lgw_log(LOG_ERROR, "%s[FWD] impossible to create validation thread\n");
+                lgw_log(LOG_ERROR, "%s[FWD] impossible to create validation thread\n", ERRMSG);
             else
                 lgw_db_put("thread", "thread_valid", "running");
         }
@@ -743,7 +738,7 @@ int main(int argc, char *argv[]) {
 	if (GW.cfg.wd_enabled == true) {
         GW.cfg.last_loop = time(NULL);
 		if (lgw_pthread_create(&thrid_watchdog, NULL, (void *(*)(void *))thread_watchdog, NULL))
-			lgw_log(LOG_ERROR, "%s[FWD] impossible to create watchdog thread\n");
+			lgw_log(LOG_ERROR, "%s[FWD] impossible to create watchdog thread\n", ERRMSG);
         else
             lgw_db_put("thread", "thread_watchdog", "running");
 	}
@@ -784,10 +779,10 @@ int main(int argc, char *argv[]) {
 	pthread_cancel(thrid_jit);	/*!> don't wait for jit thread */
 
 	if ((i = pthread_join(thrid_up, NULL)) != 0)
-        lgw_log(LOG_ERROR, "%s[FWD] failed to join data up thread with %d - %s\n", i, strerror(errno));
+        lgw_log(LOG_ERROR, "%s[FWD] failed to join data up thread with %d - %s\n", ERRMSG, i, strerror(errno));
 
 	if ((i = pthread_join(thrid_recycle, NULL)) != 0)
-        lgw_log(LOG_ERROR, "%s[FWD] failed to join recycle thread with %d - %s\n", i, strerror(errno));
+        lgw_log(LOG_ERROR, "%s[FWD] failed to join recycle thread with %d - %s\n", ERRMSG, i, strerror(errno));
 
 	if (GW.gps.gps_enabled == true) {
 		pthread_cancel(thrid_gps);	        /*!> don't wait for GPS thread */
@@ -807,7 +802,7 @@ int main(int argc, char *argv[]) {
 #ifdef SX1302MOD
     if (GW.spectral_scan_params.enable == true) {
         if ((i = pthread_join(thrid_ss, NULL)) != 0)
-            lgw_log(LOG_ERROR, "%s[FWD] failed to join Spectral Scan thread with %d - %s\n", i, strerror(errno));
+            lgw_log(LOG_ERROR, "%s[FWD] failed to join Spectral Scan thread with %d - %s\n", ERRMSG, i, strerror(errno));
     }
 #endif
 
@@ -829,7 +824,7 @@ int main(int argc, char *argv[]) {
 			i = lgw_stop();
 			if (i == LGW_HAL_SUCCESS) {
                 if (system("/usr/bin/reset_lgw.sh stop") != 0) {
-                    lgw_log(LOG_ERROR, "%s[FWD] failed to stop SX1302\n");
+                    lgw_log(LOG_ERROR, "%s[FWD] failed to stop SX1302\n", ERRMSG);
                 } else 
 				    lgw_log(LOG_ERROR, "%s[FWD] concentrator stopped successfully\n", INFOMSG);
 			} else {
@@ -872,7 +867,7 @@ static void thread_up(void) {
 			nb_pkt = 0;
 
 		if (nb_pkt == LGW_HAL_ERROR) {
-			lgw_log(LOG_ERROR, "%s[fwd-UP] HAL receive failed, try restart HAL\n");
+			lgw_log(LOG_ERROR, "%s[fwd-UP] HAL receive failed, try restart HAL\n", ERRMSG);
 			//exit(EXIT_FAILURE);
 		}
 
@@ -880,7 +875,7 @@ static void thread_up(void) {
 			nb_pkt = ghost_get(NB_PKT_MAX - nb_pkt, &rxpkt[nb_pkt]) + nb_pkt;
 
 		if (GW.cfg.delay_enabled == true)
-			nb_pkt = delay_pkt_get(NB_PKT_MAX/2 - nb_pkt, &rxpkt[nb_pkt]) + nb_pkt;
+			nb_pkt = delay_pkt_get(10 - nb_pkt, &rxpkt[nb_pkt]) + nb_pkt;
 
 		/*!> wait a short time if no packets, nor status report */
 		if (nb_pkt == 0) {
@@ -914,7 +909,8 @@ static void thread_up(void) {
 	            lgw_log(LOG_DEBUG, "%s[%s-UP] post sem: %s\n", DEBUGMSG, serv_entry->info.name, strerror(errno));
         }
 
-			wait_ms(DEFAULT_FETCH_SLEEP_MS);
+		wait_ms(DEFAULT_FETCH_SLEEP_MS);
+
 	}
 
 	lgw_log(LOG_INFO, "%s[THREAD][fwd-UP] Ended!\n", INFOMSG);
@@ -1340,7 +1336,7 @@ static void thread_watchdog(void) {
 		wait_ms(30000);
 		// timestamp updated within the last 3 stat intervals? If not assume something is wrong and exit
 		if ((time(NULL) - GW.cfg.last_loop) > (long int)((GW.cfg.time_interval * 3) + 5)) {
-			lgw_log(LOG_ERROR, "%s[WD] timer expired!\n");
+			lgw_log(LOG_ERROR, "%s[WD] timer expired!\n", ERRMSG);
 			exit(254);
 		}
 	}
@@ -1520,7 +1516,7 @@ static void thread_lbt_scan(void)
             if (GW.lbt.lbt_tty_fd != -1)
                 uart_config(GW.lbt.lbt_tty_fd, GW.lbt.lbt_tty_baude, 9, 9, 9, 9);  /*!> 9 use default */
             else {
-                lgw_log(LOG_ERROR, "%s[LBT] cannot open tty path, continue\n");
+                lgw_log(LOG_ERROR, "%s[LBT] cannot open tty path, continue\n", ERRMSG);
                 wait_ms(5000); 
                 continue;
             }

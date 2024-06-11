@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
             }
 
             
-            printf("(%d) Wait %d ms for next LBT detect\n", i, waitms);
+            printf("(%d) Wait %ld ms for next LBT detect\n", i, waitms);
             wait_ms(waitms);
             clock_gettime(CLOCK_MONOTONIC, &e_time);
             printf("(%d) Use total time %d(ms)\n", i, (int)(1000 * difftimespec(e_time, s_time)));

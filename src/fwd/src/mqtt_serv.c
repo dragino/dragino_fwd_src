@@ -71,7 +71,7 @@ static void mqtt_dnlink_cb(struct MessageData *data, void* s) {
 }
 
 void dnlink_handler(MessageData* data) {
-    lgw_log(LOG_INFO, "[INFO~]mqtt suscribe %d bytes message: %s/%s\n", data->message->payloadlen, data->topicName, (char*)data->message->payload);
+    lgw_log(LOG_INFO, "[INFO~]mqtt suscribe %d bytes message: %s/%s\n", data->message->payloadlen, (char*)data->topicName, (char*)data->message->payload);
 }
 
 static int mqtt_connect(serv_s *serv) {

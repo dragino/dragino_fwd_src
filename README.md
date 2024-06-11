@@ -186,6 +186,7 @@ usb module can only make 60ms scan loop.
 ## 2023/03/15  fwd-2.8.4
 1. gpst fix, (Quect L76)not support ubx, disable gps time.
 
+
 ## 2023/03/21  fwd-2.8.5
 1. ghost thread which can receive package from udp port
 
@@ -229,3 +230,9 @@ GW as relay or has relay function add
 1。更改init_sock时的回收bug，修改online/offline输出的频率。
 2。增加delay 功能，当前网络状态如果是offline，将会在内存里缓存lora包（64个）
    当网络转为online时，将缓存的包上发。
+
+## 2024/03/19 fwd-3.1.2
+station 的问题： 1.时间漂移值过大   2. 会收到莫名的包导致下发失败（diid=0的包） 3. 下发abandon的问题
+适当改动：1.修改station同步时间的阀值timesysnc.c:  _MAX_DT  2. 跳过某些diid=0的包，因为这些是没有内容的包
+
+

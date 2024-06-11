@@ -217,7 +217,7 @@ static int db_exec_sql(const char *sql, int (*callback)(void *, int, char **, ch
 	int res =0;
 
 	if (sqlite3_exec(GWDB, sql, callback, arg, &errmsg) != SQLITE_OK) {
-		MSG( "WARNING~ [db] Error executing SQL (%s): %s\n", WARNMSG, sql, errmsg);
+		MSG( "%s[db] Error executing SQL (%s): %s\n", WARNMSG, sql, errmsg);
 		sqlite3_free(errmsg);
 		res = -1;
 	}

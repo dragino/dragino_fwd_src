@@ -281,80 +281,80 @@ int pkt_start(serv_s* serv) {
         return -1;
     }
 
-    if (GW.cfg.custom_downlink) {
-        switch (GW.cfg.region) {
-            case EU: 
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 869525000UL;
-                break;
-            case EU433: 
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 434665000UL;
-                break;
-            case US:
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_500KHZ;
-                rx2freq = 923300000UL;
-                break;
-            case CN470:
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 505300000UL;
-                break;
-            case CN779:
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 786000000UL;
-                break;
-            case AU:
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_500KHZ;
-                rx2freq = 923300000UL;
-                break;
-            case AS1:
-                rx2dr = DR_LORA_SF10;
-                rx2bw = BW_125KHZ;
-                rx2freq = 923200000UL;
-                break;
-            case AS2: // 923.2MHz + AS923_FREQ_OFFSET_HZ ( -1.8MHz )
-                rx2dr = DR_LORA_SF10;
-                rx2bw = BW_125KHZ;
-                rx2freq = 923020000UL;
-                break;
-            case AS3: // ( -6.6MHz )
-                rx2dr = DR_LORA_SF10;
-                rx2bw = BW_125KHZ;
-                rx2freq = 922540000UL;
-                break;
-            case KR:
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 921900000UL;
-                break;
-            case IN:
-                rx2dr = DR_LORA_SF10;
-                rx2bw = BW_125KHZ;
-                rx2freq = 866550000UL;
-                break;
-            case RU:
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 869100000UL;
-                break;
-            case KZ:  //KZ865 
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 866700000UL;
-                break;
-            default:
-                rx2dr = DR_LORA_SF12;
-                rx2bw = BW_125KHZ;
-                rx2freq = 869525000UL;
-                break;
-        }
+    switch (GW.cfg.region) {
+        case EU: 
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 869525000UL;
+            break;
+        case EU433: 
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 434665000UL;
+            break;
+        case US:
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_500KHZ;
+            rx2freq = 923300000UL;
+            break;
+        case CN470:
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 505300000UL;
+            break;
+        case CN779:
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 786000000UL;
+            break;
+        case AU:
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_500KHZ;
+            rx2freq = 923300000UL;
+            break;
+        case AS1:
+            rx2dr = DR_LORA_SF10;
+            rx2bw = BW_125KHZ;
+            rx2freq = 923200000UL;
+            break;
+        case AS2: // 923.2MHz + AS923_FREQ_OFFSET_HZ ( -1.8MHz )
+            rx2dr = DR_LORA_SF10;
+            rx2bw = BW_125KHZ;
+            rx2freq = 923020000UL;
+            break;
+        case AS3: // ( -6.6MHz )
+            rx2dr = DR_LORA_SF10;
+            rx2bw = BW_125KHZ;
+            rx2freq = 922540000UL;
+            break;
+        case KR:
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 921900000UL;
+            break;
+        case IN:
+            rx2dr = DR_LORA_SF10;
+            rx2bw = BW_125KHZ;
+            rx2freq = 866550000UL;
+            break;
+        case RU:
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 869100000UL;
+            break;
+        case KZ:  //KZ865 
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 866700000UL;
+            break;
+        default:
+            rx2dr = DR_LORA_SF12;
+            rx2bw = BW_125KHZ;
+            rx2freq = 869525000UL;
+            break;
+    }
 
+    if (GW.cfg.custom_downlink) {
         if (lgw_pthread_create_background(&serv->thread.t_down, NULL, (void *(*)(void *))pkt_prepare_downlink, (void*)serv)) {
             lgw_log(LOG_WARNING, "%s[THREAD][%s] Can't create pthread for custom downlonk.\n", WARNMSG, serv->info.name);
             return -1;
@@ -407,12 +407,6 @@ static void thread_pkt_deal_up(void* arg) {
     serv_s* serv = serv_ct->serv;
     pthread_t tid = pthread_self();
     
-    //struct timeval start_us, end_us;
-
-    //gettimeofday(&start_us, NULL);
-
-    //lgw_log(LOG_DEBUG, "THREAD~<< [tid=%ld] startup(%u:%u)\n", tid, start_us.tv_sec, start_us.tv_usec);
-
 	int i, j;					/*!> loop variables */
     int fsize = 0;
     int index = 0;

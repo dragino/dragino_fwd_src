@@ -33,11 +33,7 @@
 #include "timesync.h"
 #include "ral.h"
 
-#if defined(CFG_smtcpico)
-#define _MAX_DT 300
-#else
-#define _MAX_DT 100
-#endif
+#define _MAX_DT 500
 
 #define SYNC_QUAL_GOOD        100  // values considered good
 #define SYNC_QUAL_THRES        90  // cut off quantile - for sync quality
@@ -184,7 +180,7 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
         syncQual_thres = max(SYNC_QUAL_GOOD, abs(thres));
     }
     if( abs(quality) > syncQual_thres ) {
-        LOG(MOD_SYN|VERBOSE, "Time sync rejected: quality=%d threshold=%d", quality, syncQual_thres);
+        LOG(MOD_SYN|XDEBUG, "Time sync rejected: quality=%d threshold=%d", quality, syncQual_thres);
         return TIMESYNC_RADIO_INTV;
     }
 
@@ -196,6 +192,8 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
     }
     ustime_t dus = curr->ustime - last->ustime;
     sL_t dxc = curr->xtime - last->xtime;
+    LOG(MOD_SYN|XDEBUG, "Time sync DEBUG (0): dus(%ld)-dxc(%ld)=%ld, ust=%ld lust=%ld, xt=%ld, lxt=%ld", 
+            dus, dxc, dus - dxc, curr->ustime, last->ustime, curr->xtime, last->xtime);
     if( dxc <= 0 ) {
         LOG(MOD_SYN|ERROR, "SX130X#%d trigger count not ticking or weird value: 0x%lX .. 0x%lX (dxc=%d)",
             txunit, last->xtime, curr->xtime, dxc);
@@ -212,9 +210,6 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
     stats->mcu_drifts[stats->mcu_drifts_widx] = drift_ppm;
     stats->mcu_drifts_widx = (stats->mcu_drifts_widx + 1) % N_DRIFTS;
     if( stats->mcu_drifts_widx == 0 ) {
-        
-        
-        
         int thres = log_drift_stats("MCU/SX130X drift stats", stats->mcu_drifts, MCU_DRIFT_THRES, NULL);
         stats->drift_thres = max(MIN_MCU_DRIFT_THRES, min(MAX_MCU_DRIFT_THRES, abs(thres)));
         double mean_ppm = decodePPM( ((double)sum_mcu_drifts) / N_DRIFTS);
@@ -224,6 +219,7 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
             rt_utcOffset_ts = curr->ustime;
         }
     }
+
     if( abs(drift_ppm) > stats->drift_thres ) {
         stats->excessive_drift_cnt += 1;
         if( (stats->excessive_drift_cnt % QUICK_RETRIES) == 0 ) {
@@ -311,6 +307,7 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
         gpsOffset += ustimeRoundSecs(curr->pps_xtime - ppsSync.pps_xtime);
     ppsSync = *curr;
   done:
+    LOG(MOD_SYN|XDEBUG, "Time sync DEBUG (DONE)");
     *last = *curr;
     return delay;
 }

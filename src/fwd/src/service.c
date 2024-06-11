@@ -65,7 +65,7 @@ int init_sock(const char *addr, const char *port, const void *timeout, int size)
 	/* look for server address w/ upstream port */
 	i = getaddrinfo(addr, port, &hints, &result);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "%s[NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", ERRMSG, addr, port, gai_strerror(i));
+		//lgw_log(LOG_ERROR, "%s[NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", ERRMSG, addr, port, gai_strerror(i));
 		return -1;
 	}
 

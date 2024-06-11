@@ -29,6 +29,7 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <time.h>
 #include <signal.h>     /* sigaction */
 #include <getopt.h>     /* getopt_long */
 
@@ -49,6 +50,8 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 
 #define DEFAULT_CLK_SRC     0
 #define DEFAULT_FREQ_HZ     868500000U
+
+#define FREQ_BAND_NUM       64
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
@@ -98,6 +101,9 @@ void usage(void) {
     printf(" --loop        Number of loops for HAL start/stop (HAL unitary test)\n");
     printf( "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" );
     printf(" --fdd         Enable Full-Duplex mode (CN490 reference design)\n");
+    printf( "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" );
+    printf(" --au915       AU915 band enable\n");
+    printf(" --interval <uint> waitms for sendtx interval\n");
 }
 
 /* handle signals */
@@ -116,7 +122,7 @@ static void sig_handler(int sigio)
 
 int main(int argc, char **argv)
 {
-    int i, x;
+    int i, x, li, ri;
     uint32_t ft = DEFAULT_FREQ_HZ;
     int8_t rf_power = 0;
     uint8_t sf = 0;
@@ -152,6 +158,13 @@ int main(int argc, char **argv)
     bool trig_delay = false;
     bool lorawan_p = true;
 
+    bool au915_band = false;
+    float AU915_FRE[FREQ_BAND_NUM] = {916.8, 917.0, 917.2, 917.4, 917.6, 917.8, 918.0, 918.2, 915.2, 915.4, 915.6, 915.8, 916.0, 916.2, 916.4, 916.6, 918.4, 918.6, 918.8, 919.0, 919.2, 919.4, 919.6, 919.8, 920.0, 920.2, 920.4, 920.6, 920.8, 921.0, 921.2, 921.4, 921.6, 921.8, 922.0, 922.2, 922.4, 922.6, 922.8, 923.0, 924.8, 925.0, 925.2, 925.4, 925.6, 925.8, 926.0, 926.2, 926.4, 926.6, 926.8, 927.0, 927.2, 927.4, 927.6, 927.8, 923.2, 923.4, 923.6, 923.8, 924.0, 924.2, 924.4, 924.6};
+    float rand_freq[FREQ_BAND_NUM];
+    int remain_band = 0;
+    int random_index = 0;
+    uint16_t interval = 5;
+
     /* SPI interfaces */
     const char com_path_default[] = COM_PATH_DEFAULT;
     const char * com_path = com_path_default;
@@ -174,8 +187,10 @@ int main(int argc, char **argv)
         {"mix",  required_argument, 0, 0},
         {"pwid", required_argument, 0, 0},
         {"loop", required_argument, 0, 0},
+        {"interval", required_argument, 0, 0},
         {"nhdr", no_argument, 0, 0},
         {"fdd",  no_argument, 0, 0},
+        {"au915", no_argument, 0, 0},
         {0, 0, 0, 0}
     };
 
@@ -405,10 +420,20 @@ int main(int argc, char **argv)
                     } else {
                         nb_loop = arg_u;
                     }
+                } else if (strcmp(long_options[option_index].name, "interval") == 0) {
+                    i = sscanf(optarg, "%u", &arg_u);
+                    if ((i != 1) || (arg_u < 1)) {
+                        printf("ERROR: argument parsing of --interval argument. Use -h to print help\n");
+                    } else {
+                        interval = arg_u;
+                        printf("INFO: --interval argument means wait %u ms\n", interval);
+                    }
                 } else if (strcmp(long_options[option_index].name, "nhdr") == 0) {
                     no_header = true;
                 } else if (strcmp(long_options[option_index].name, "fdd") == 0) {
                     full_duplex = true;
+                } else if (strcmp(long_options[option_index].name, "au915") == 0) {
+                    au915_band = true;
                 } else {
                     printf("ERROR: argument parsing options. Use -h to print help\n");
                     return EXIT_FAILURE;
@@ -500,104 +525,227 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        /* Send packets */
-        memset(&pkt, 0, sizeof pkt);
-        pkt.rf_chain = rf_chain;
-        pkt.freq_hz = ft;
-        pkt.rf_power = rf_power;
-        if (trig_delay == false) {
-            pkt.tx_mode = IMMEDIATE;
-        } else {
-            if (trig_delay_us == 0) {
-                pkt.tx_mode = ON_GPS;
-            } else {
-                pkt.tx_mode = TIMESTAMPED;
-            }
-        }
-        if ( strcmp( mod, "CW" ) == 0 ) {
-            pkt.modulation = MOD_CW;
-            pkt.freq_offset = freq_offset;
-            pkt.f_dev = fdev_khz;
-        }
-        else if( strcmp( mod, "FSK" ) == 0 ) {
-            pkt.modulation = MOD_FSK;
-            pkt.no_crc = false;
-            pkt.datarate = br_kbps * 1e3;
-            pkt.f_dev = fdev_khz;
-        } else {
-            pkt.modulation = MOD_LORA;
-            pkt.coderate = CR_LORA_4_5;
-            pkt.no_crc = true;
-        }
-        pkt.invert_pol = invert_pol;
-        pkt.preamble = preamble;
-        pkt.no_header = no_header;
-        pkt.payload[0] = 0x40; /* Confirmed Data Up */
-        pkt.payload[1] = 0xAB;
-        pkt.payload[2] = 0xAB;
-        pkt.payload[3] = 0xAB;
-        pkt.payload[4] = 0xAB;
-        pkt.payload[5] = 0x00; /* FCTrl */
-        pkt.payload[6] = 0; /* FCnt */
-        pkt.payload[7] = 0; /* FCnt */
-        pkt.payload[8] = 0x02; /* FPort */
-        for (i = 9; i < 255; i++) {
-            pkt.payload[i] = i;
-        }
+        if (au915_band) {
 
-        for (i = 0; i < (int)nb_pkt; i++) {
-            if (trig_delay == true) {
-                if (trig_delay_us > 0) {
-                    lgw_get_instcnt(&count_us);
-                    printf("count_us:%u\n", count_us);
-                    pkt.count_us = count_us + trig_delay_us;
-                    printf("programming TX for %u\n", pkt.count_us);
+            for (i = 0; i < FREQ_BAND_NUM; i++) {
+                rand_freq[i] = AU915_FRE[i];
+            }
+
+            srand(time(NULL));
+
+            for (li = 0; li < FREQ_BAND_NUM; li++) {
+                remain_band = FREQ_BAND_NUM - li;
+                random_index = rand() % remain_band;
+                ft = (uint32_t)((rand_freq[random_index]*1e6) + 0.5);
+                for (ri = random_index; ri < remain_band - 1; ri++) {
+                    rand_freq[ri] = rand_freq[ri + 1];
+                }
+
+                printf("#%d--%d Sending packet on %u Hz (Freq. offset %d kHz) at %i dBm\n", li, remain_band, ft, freq_offset, rf_power);
+                /* Send packets */
+                memset(&pkt, 0, sizeof pkt);
+                pkt.rf_chain = rf_chain;
+                pkt.freq_hz = ft;
+                pkt.rf_power = rf_power;
+                if (trig_delay == false) {
+                    pkt.tx_mode = IMMEDIATE;
                 } else {
-                    printf("programming TX for next PPS (GPS)\n");
+                    if (trig_delay_us == 0) {
+                        pkt.tx_mode = ON_GPS;
+                    } else {
+                        pkt.tx_mode = TIMESTAMPED;
+                    }
+                }
+                if ( strcmp( mod, "CW" ) == 0 ) {
+                    pkt.modulation = MOD_CW;
+                    pkt.freq_offset = freq_offset;
+                    pkt.f_dev = fdev_khz;
+                }
+                else if( strcmp( mod, "FSK" ) == 0 ) {
+                    pkt.modulation = MOD_FSK;
+                    pkt.no_crc = false;
+                    pkt.datarate = br_kbps * 1e3;
+                    pkt.f_dev = fdev_khz;
+                } else {
+                    pkt.modulation = MOD_LORA;
+                    pkt.coderate = CR_LORA_4_5;
+                    pkt.no_crc = true;
+                }
+                pkt.invert_pol = invert_pol;
+                pkt.preamble = preamble;
+                pkt.no_header = no_header;
+                pkt.payload[0] = 0x40; /* Confirmed Data Up */
+                pkt.payload[1] = 0xAB;
+                pkt.payload[2] = 0xAB;
+                pkt.payload[3] = 0xAB;
+                pkt.payload[4] = 0xAB;
+                pkt.payload[5] = 0x00; /* FCTrl */
+                pkt.payload[6] = 0; /* FCnt */
+                pkt.payload[7] = 0; /* FCnt */
+                pkt.payload[8] = 0x02; /* FPort */
+                for (i = 9; i < 255; i++) {
+                    pkt.payload[i] = i;
+                }
+
+                for (i = 0; i < (int)nb_pkt; i++) {
+                    if (trig_delay == true) {
+                        if (trig_delay_us > 0) {
+                            lgw_get_instcnt(&count_us);
+                            printf("count_us:%u\n", count_us);
+                            pkt.count_us = count_us + trig_delay_us;
+                            printf("programming TX for %u\n", pkt.count_us);
+                        } else {
+                            printf("programming TX for next PPS (GPS)\n");
+                        }
+                    }
+
+                    if( strcmp( mod, "LORA" ) == 0 ) {
+                        pkt.datarate = (sf == 0) ? (uint8_t)RAND_RANGE(5, 12) : sf;
+                    }
+
+                    switch (bw_khz) {
+                        case 125:
+                            pkt.bandwidth = BW_125KHZ;
+                            break;
+                        case 250:
+                            pkt.bandwidth = BW_250KHZ;
+                            break;
+                        case 500:
+                            pkt.bandwidth = BW_500KHZ;
+                            break;
+                        default:
+                            pkt.bandwidth = (uint8_t)RAND_RANGE(BW_125KHZ, BW_500KHZ);
+                            break;
+                    }
+
+                    pkt.size = (size == 0) ? (uint8_t)RAND_RANGE(9, 255) : size;
+
+                    pkt.payload[6] = (uint8_t)(i >> 0); /* FCnt */
+                    pkt.payload[7] = (uint8_t)(i >> 8); /* FCnt */
+                    x = lgw_send(&pkt);
+                    if (x != 0) {
+                        printf("ERROR: failed to send packet\n");
+                        break;
+                    }
+                    /* wait for packet to finish sending */
+                    do {
+                        wait_ms(5);
+                        lgw_status(pkt.rf_chain, TX_STATUS, &tx_status); /* get TX status */
+                    } while ((tx_status != TX_FREE) && (quit_sig != 1) && (exit_sig != 1));
+
+                    if ((quit_sig == 1) || (exit_sig == 1)) {
+                        break;
+                    }
+                    printf("TX done\n");
+                }
+                wait_ms(interval);
+            }
+
+            printf( "\n sent loop: %u (%u)\n", FREQ_BAND_NUM, cnt_loop + 1 );
+
+        } else { /* end of AU915 BAND */
+        
+            /* Send packets */
+            memset(&pkt, 0, sizeof pkt);
+            pkt.rf_chain = rf_chain;
+            pkt.freq_hz = ft;
+            pkt.rf_power = rf_power;
+            if (trig_delay == false) {
+                pkt.tx_mode = IMMEDIATE;
+            } else {
+                if (trig_delay_us == 0) {
+                    pkt.tx_mode = ON_GPS;
+                } else {
+                    pkt.tx_mode = TIMESTAMPED;
                 }
             }
-
-            if( strcmp( mod, "LORA" ) == 0 ) {
-                pkt.datarate = (sf == 0) ? (uint8_t)RAND_RANGE(5, 12) : sf;
+            if ( strcmp( mod, "CW" ) == 0 ) {
+                pkt.modulation = MOD_CW;
+                pkt.freq_offset = freq_offset;
+                pkt.f_dev = fdev_khz;
+            }
+            else if( strcmp( mod, "FSK" ) == 0 ) {
+                pkt.modulation = MOD_FSK;
+                pkt.no_crc = false;
+                pkt.datarate = br_kbps * 1e3;
+                pkt.f_dev = fdev_khz;
+            } else {
+                pkt.modulation = MOD_LORA;
+                pkt.coderate = CR_LORA_4_5;
+                pkt.no_crc = true;
+            }
+            pkt.invert_pol = invert_pol;
+            pkt.preamble = preamble;
+            pkt.no_header = no_header;
+            pkt.payload[0] = 0x40; /* Confirmed Data Up */
+            pkt.payload[1] = 0xAB;
+            pkt.payload[2] = 0xAB;
+            pkt.payload[3] = 0xAB;
+            pkt.payload[4] = 0xAB;
+            pkt.payload[5] = 0x00; /* FCTrl */
+            pkt.payload[6] = 0; /* FCnt */
+            pkt.payload[7] = 0; /* FCnt */
+            pkt.payload[8] = 0x02; /* FPort */
+            for (i = 9; i < 255; i++) {
+                pkt.payload[i] = i;
             }
 
-            switch (bw_khz) {
-                case 125:
-                    pkt.bandwidth = BW_125KHZ;
+            for (i = 0; i < (int)nb_pkt; i++) {
+                if (trig_delay == true) {
+                    if (trig_delay_us > 0) {
+                        lgw_get_instcnt(&count_us);
+                        printf("count_us:%u\n", count_us);
+                        pkt.count_us = count_us + trig_delay_us;
+                        printf("programming TX for %u\n", pkt.count_us);
+                    } else {
+                        printf("programming TX for next PPS (GPS)\n");
+                    }
+                }
+
+                if( strcmp( mod, "LORA" ) == 0 ) {
+                    pkt.datarate = (sf == 0) ? (uint8_t)RAND_RANGE(5, 12) : sf;
+                }
+
+                switch (bw_khz) {
+                    case 125:
+                        pkt.bandwidth = BW_125KHZ;
+                        break;
+                    case 250:
+                        pkt.bandwidth = BW_250KHZ;
+                        break;
+                    case 500:
+                        pkt.bandwidth = BW_500KHZ;
+                        break;
+                    default:
+                        pkt.bandwidth = (uint8_t)RAND_RANGE(BW_125KHZ, BW_500KHZ);
+                        break;
+                }
+
+                pkt.size = (size == 0) ? (uint8_t)RAND_RANGE(9, 255) : size;
+
+                pkt.payload[6] = (uint8_t)(i >> 0); /* FCnt */
+                pkt.payload[7] = (uint8_t)(i >> 8); /* FCnt */
+                x = lgw_send(&pkt);
+                if (x != 0) {
+                    printf("ERROR: failed to send packet\n");
                     break;
-                case 250:
-                    pkt.bandwidth = BW_250KHZ;
+                }
+                /* wait for packet to finish sending */
+                do {
+                    wait_ms(5);
+                    lgw_status(pkt.rf_chain, TX_STATUS, &tx_status); /* get TX status */
+                } while ((tx_status != TX_FREE) && (quit_sig != 1) && (exit_sig != 1));
+
+                if ((quit_sig == 1) || (exit_sig == 1)) {
                     break;
-                case 500:
-                    pkt.bandwidth = BW_500KHZ;
-                    break;
-                default:
-                    pkt.bandwidth = (uint8_t)RAND_RANGE(BW_125KHZ, BW_500KHZ);
-                    break;
+                }
+                printf("TX done\n");
             }
 
-            pkt.size = (size == 0) ? (uint8_t)RAND_RANGE(9, 255) : size;
+            printf( "\nNb packets sent: %u (%u)\n", i, cnt_loop + 1 );
 
-            pkt.payload[6] = (uint8_t)(i >> 0); /* FCnt */
-            pkt.payload[7] = (uint8_t)(i >> 8); /* FCnt */
-            x = lgw_send(&pkt);
-            if (x != 0) {
-                printf("ERROR: failed to send packet\n");
-                break;
-            }
-            /* wait for packet to finish sending */
-            do {
-                wait_ms(5);
-                lgw_status(pkt.rf_chain, TX_STATUS, &tx_status); /* get TX status */
-            } while ((tx_status != TX_FREE) && (quit_sig != 1) && (exit_sig != 1));
-
-            if ((quit_sig == 1) || (exit_sig == 1)) {
-                break;
-            }
-            printf("TX done\n");
         }
 
-        printf( "\nNb packets sent: %u (%u)\n", i, cnt_loop + 1 );
 
         /* Stop the gateway */
         x = lgw_stop();
