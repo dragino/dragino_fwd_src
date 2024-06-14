@@ -131,6 +131,7 @@ int   log_special (u1_t mod_level, dbuf_t* buf);
 void  log_specialFlush (int len);
 void  log_flush ();
 void  log_flushIO ();
+void log_status (const char *buf, size_t len);
 
 
 #if defined(CFG_log_file_line)

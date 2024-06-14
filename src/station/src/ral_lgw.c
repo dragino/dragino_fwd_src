@@ -368,6 +368,7 @@ int ral_config (str_t hwspec, u4_t cca_region, char* json, int jsonlen, chdefl_t
                 (status = !sys_runRadioInit(sx130xconf.device)       << 2) ||
                 (status = !sx130xconf_start(&sx130xconf, cca_region) << 3) ) {
                 LOG(MOD_RAL|ERROR, "ral_config failed with status 0x%02x", status);
+                log_status("FAILED", 7);
             } else {
                 // Radio started
                 txpowAdjust = sx130xconf.txpowAdjust;
@@ -375,6 +376,7 @@ int ral_config (str_t hwspec, u4_t cca_region, char* json, int jsonlen, chdefl_t
                 last_xtime = ts_newXtimeSession(0);
                 rt_yieldTo(&rxpollTmr, rxpolling);
                 rt_yieldTo(&syncTmr, synctime);
+                log_status("ONLINE", 7);
                 ok = 1;
             }
         }
@@ -397,6 +399,7 @@ void ral_stop() {
     last_xtime = 0;
     rt_clrTimer(&rxpollTmr);
     lgw_stop();
+    log_status("OFFLINE", 8);
 }
 
 #endif // defined(CFG_ral_lgw)

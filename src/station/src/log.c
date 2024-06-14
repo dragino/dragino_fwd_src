@@ -26,6 +26,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
 #include "s2conf.h"
 #include "sys.h"
 #include "rt.h"
@@ -191,5 +195,21 @@ void log_flush () {
 void log_flushIO () {
     log_flush();
     sys_addLog(logbuf.buf, 0);
+}
+
+void log_status (const char *buf, size_t len) {
+    int fd;  
+    size_t bytes_written;
+    fd = open("/var/tmp/station_status.log", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);  
+    if (fd == -1) {  
+    	return;  
+    }  
+  
+    bytes_written = write(fd, buf, len);  
+    //if (bytes_written == -1) {  
+    //}  
+  
+    close(fd);  
+    return;  
 }
 

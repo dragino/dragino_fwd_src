@@ -1104,6 +1104,8 @@ int sys_main (int argc, char** argv) {
     if( getcwd(cwd, sizeof(cwd)) != NULL )
         fs_chdir(cwd);
 
+    log_status("OFFLINE", 8);
+
     s2conf_ini();
     logfile.size = LOGFILE_SIZE;
     logfile.rotate = LOGFILE_ROTATE;

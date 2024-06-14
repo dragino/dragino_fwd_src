@@ -235,4 +235,7 @@ GW as relay or has relay function add
 station 的问题： 1.时间漂移值过大   2. 会收到莫名的包导致下发失败（diid=0的包） 3. 下发abandon的问题
 适当改动：1.修改station同步时间的阀值timesysnc.c:  _MAX_DT  2. 跳过某些diid=0的包，因为这些是没有内容的包
 
+## 2024/03/19 fwd-3.1.5
+在文件/var/tmp/station_status.log里输出station的online/offline状态
+
 
