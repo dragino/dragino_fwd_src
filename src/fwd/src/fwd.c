@@ -666,6 +666,7 @@ int main(int argc, char *argv[]) {
 		    exit_sig = true;
 			exit(EXIT_FAILURE);
 		}
+        /*
         if (!strncasecmp(GW.hal.board, "sx1302", 6)) {   
             uint64_t eui;
             i = lgw_get_eui(&eui);
@@ -673,6 +674,7 @@ int main(int argc, char *argv[]) {
                 lgw_log(LOG_INFO, "%s[FWD] concentrator EUI 0x%016" PRIx64 "\n", INFOMSG, eui);
             }
         }
+        */
 	} else {
 		lgw_log(LOG_WARNING, "%s[FWD] Radio is disabled, radio packets cannot be sent or received.\n", WARNMSG);
 	}

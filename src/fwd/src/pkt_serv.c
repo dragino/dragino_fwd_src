@@ -525,75 +525,89 @@ static void thread_pkt_deal_up(void* arg) {
             str2hex(devinfo.nwkskey, devinfo.nwkskey_str, sizeof(devinfo.nwkskey));
 
             /*!> Debug message of appskey */
-            /*!>
+
+            /*
             lgw_log(LOG_DEBUG, "\n%s[MAC-Decode]appskey:", DEBUGMSG);
             for (j = 0; j < (int)sizeof(devinfo.appskey); ++j) {
                 lgw_log(LOG_DEBUG, "%02X", devinfo.appskey[j]);
             }
             lgw_log(LOG_DEBUG, "\n");
+
+            lgw_log(LOG_DEBUG, "\n%s[MAC-Decode]nwkskey:", DEBUGMSG);
+            for (j = 0; j < (int)sizeof(devinfo.nwkskey); ++j) {
+                lgw_log(LOG_DEBUG, "%02X", devinfo.nwkskey[j]);
+            }
+            lgw_log(LOG_DEBUG, "\n");
             */
 
+            lgw_log(LOG_DEBUG, "%s[DECODE][PAYLOAD][size:%d]#############################################\n", DEBUGMSG, p->size);
+            for (j = 0; j < p->size; j++) {
+                lgw_log(LOG_DEBUG, "%02x", p->payload[j]);
+            }
+            lgw_log(LOG_DEBUG, "\n%s[DECODE][PAYLOAD]####################################################\n", DEBUGMSG);
+
             if (GW.cfg.mac_decode) {
-                int l;
                 uint32_t fcnt, mic;
 				bool fcnt_valid = false;
                 fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
                 memcpy(payload_encrypt, p->payload + 9 + macmsg.FHDR.FCtrl.Bits.FOptsLen, fsize);
-                for (l = 0; l < FCNT_GAP; l++) {   // loop 8 times
-                    fcnt = macmsg.FHDR.FCnt | (l * 0x10000);
+                for (j = 0; j < GW.cfg.fcnt_gap; j++) {   // loop 8 times
+                    fcnt = macmsg.FHDR.FCnt | (j * 0x10000);
+                    // msglen = p-size - len(MIC)
                     LoRaMacComputeMic(p->payload, p->size - 4, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, &mic);
-                    //lgw_log(LOG_DEBUG, "%s[MIC] mic=%08X, MIC=%08X, fcnt=%u, FCNT=%u\n", mic, macmsg.MIC, fcnt, macmsg.FHDR.FCnt);
+                    //lgw_log(LOG_DEBUG, "%s[MIC] mic=%08X, MIC=%08X, fcnt=%u, FCNT=%u\n", DEBUGMSG, mic, macmsg.MIC, fcnt, macmsg.FHDR.FCnt);
                     if (mic == macmsg.MIC) {
                         fcnt_valid = true;
-                        lgw_log(LOG_DEBUG, "%s[DECODE] Found a match fcnt(=%u)\n", DEBUGMSG, fcnt);
+                        lgw_log(LOG_DEBUG, "%s[DECODE] Found a match MIC, fcnt=(%u)\n", DEBUGMSG, fcnt);
                         break;
                     }
                 }
 
-                if (fcnt_valid) {
+                if (!fcnt_valid) {
+                    fcnt = macmsg.FHDR.FCnt & 0xFFFFFFFF;
+                }
                 
-                    if (macmsg.FPort == 0)
-                        LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, payload_txt);
-                    else
-                        LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.appskey, devinfo.devaddr, UP, fcnt, payload_txt);
+                if (macmsg.FPort == 0)
+                    LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, payload_txt);
+                else
+                    LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.appskey, devinfo.devaddr, UP, fcnt, payload_txt);
 
-                    /*!> Debug message of decoded payload */
-                    /*!>
-                    lgw_log(LOG_DEBUG, "\n%s[MAC-Decode] RX(%d):", fsize);
-                    for (i = 0; i < fsize; ++i) {
-                        lgw_log(LOG_DEBUG, "%02X", payload_txt[i]);
-                    }
-                    lgw_log(LOG_DEBUG, "\n");
-                    */
+                /*!> Debug message of decoded payload */
+                /*!>
+                */
+                lgw_log(LOG_DEBUG, "\n%s[DECODED][PAYLOAD][SIZE:%d]##########################################\n", DEBUGMSG, fsize);
+                for (j = 0; j < fsize; ++j) {
+                    lgw_log(LOG_DEBUG, "%02X", payload_txt[j]);
+                }
+                lgw_log(LOG_DEBUG, "\n%s[DECODE][PAYLOAD]####################################################\n", DEBUGMSG);
 
-                    if (GW.cfg.mac2file) {
-                        FILE *fp;
-                        char pushpath[128];
-                        char rssi_snr[32] = {'\0'};
-                        snprintf(pushpath, sizeof(pushpath), "/var/iot/channels/%08X-%u", devinfo.devaddr, fcnt % 5);
-                        fp = fopen(pushpath, "w+");
-                        if (NULL == fp)
-                            lgw_log(LOG_WARNING, "%s[DECODE] Fail to open path: %s\n", WARNMSG, pushpath);
-                        else { 
-                            sprintf(rssi_snr, "%08X%08X", (short)p->rssic, (short)(p->snr*10));
-                            fwrite(rssi_snr, sizeof(char), 16, fp);
-                            fwrite(payload_txt, sizeof(uint8_t), fsize, fp);
-                            fflush(fp); 
-                            fclose(fp);
-                        }
-                    
+                if (GW.cfg.mac2file) {
+                    FILE *fp;
+                    char pushpath[128];
+                    char rssi_snr[32] = {'\0'};
+                    snprintf(pushpath, sizeof(pushpath), "/var/iot/channels/%08X-%u", devinfo.devaddr, fcnt % 5);
+                    fp = fopen(pushpath, "w+");
+                    if (NULL == fp)
+                        lgw_log(LOG_WARNING, "%s[DECODE] Fail to open path: %s\n", WARNMSG, pushpath);
+                    else { 
+                        sprintf(rssi_snr, "%08X%08X", (short)p->rssic, (short)(p->snr*10));
+                        fwrite(rssi_snr, sizeof(char), 16, fp);
+                        fwrite(payload_txt, sizeof(uint8_t), fsize, fp);
+                        fflush(fp); 
+                        fclose(fp);
                     }
+                
+                }
 
-                    if (GW.cfg.mac2db) { /*!> 每个devaddr最多保存10个payload */
-                        sprintf(db_family, "/payload/%08X", devinfo.devaddr);
-                        if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
-                            lgw_db_put(db_family, "index", "0");
-                        } else 
-                            index = atoi(tmpstr) % 9;
-                        sprintf(db_family, "/payload/%08X/%d", devinfo.devaddr, index);
-                        sprintf(db_key, "%u", p->count_us);
-                        lgw_db_put(db_family, db_key, (char*)payload_txt);
-                    }
+                if (GW.cfg.mac2db) { /*!> 每个devaddr最多保存10个payload */
+                    sprintf(db_family, "/payload/%08X", devinfo.devaddr);
+                    if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
+                        lgw_db_put(db_family, "index", "0");
+                    } else 
+                        index = atoi(tmpstr) % 9;
+                    sprintf(db_family, "/payload/%08X/%d", devinfo.devaddr, index);
+                    sprintf(db_key, "%u", p->count_us);
+                    lgw_db_put(db_family, db_key, (char*)payload_txt);
                 }
             }
 

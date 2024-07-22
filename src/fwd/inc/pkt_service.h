@@ -39,8 +39,6 @@
 #define UP                          0
 #define DOWN                        1
 
-#define FCNT_GAP                    8
-
 int pkt_start(serv_s*);
 void pkt_stop(serv_s*);
 

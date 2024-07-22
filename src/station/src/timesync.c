@@ -192,8 +192,8 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
     }
     ustime_t dus = curr->ustime - last->ustime;
     sL_t dxc = curr->xtime - last->xtime;
-    LOG(MOD_SYN|XDEBUG, "Time sync DEBUG (0): dus(%ld)-dxc(%ld)=%ld, ust=%ld lust=%ld, xt=%ld, lxt=%ld", 
-            dus, dxc, dus - dxc, curr->ustime, last->ustime, curr->xtime, last->xtime);
+    LOG(MOD_SYN|XDEBUG, "Time sync DEBUG (0): dus(%ld)/dxc(%ld)=%.6f, cust(%ld):lust(%ld), cxt(%ld):lxt=(%ld)", 
+            dus, dxc, (double)dus/(double)dxc, curr->ustime, last->ustime, curr->xtime, last->xtime);
     if( dxc <= 0 ) {
         LOG(MOD_SYN|ERROR, "SX130X#%d trigger count not ticking or weird value: 0x%lX .. 0x%lX (dxc=%d)",
             txunit, last->xtime, curr->xtime, dxc);
@@ -230,7 +230,7 @@ ustime_t ts_updateTimesync (u1_t txunit, int quality, const timesync_t* curr) {
         }
         if( stats->excessive_drift_cnt >= 2*QUICK_RETRIES )
             stats->drift_thres = MAX_MCU_DRIFT_THRES;  // reset - we might be stuck on a very low value
-        if( stats->excessive_drift_cnt >= 3*QUICK_RETRIES ) {
+        if( stats->excessive_drift_cnt >= 3*QUICK_RETRIES ) {  // can't synctimer ?
             delay = delay/2;
             goto done;
         }

@@ -580,6 +580,7 @@ static void ws_connected_r (aio_t* aio) {
         dbuf_t wbuf = ws_getSendbuf(conn, plen);
         if( wbuf.buf == NULL ) {
             LOG(MOD_AIO|WARNING, "[%d] Cannot respond to PING message of length %d", conn->netctx.fd, plen);
+            log_status("OFFLINE", 8);
             break;
         }
         wbuf.buf[0-WSHDR_INTRA] = plen>>8;
@@ -589,6 +590,7 @@ static void ws_connected_r (aio_t* aio) {
         memcpy(wbuf.buf, p, plen);
         aio_set_wrfn(conn->aio, ws_connected_w);
         LOG(MOD_AIO|XDEBUG, "[%d|WS] > PONG", conn->netctx.fd);
+        log_status("ONLINE", 7);
         break;
     }
     case WSHDR_PONG: {

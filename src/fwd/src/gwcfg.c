@@ -1451,6 +1451,14 @@ static int parse_gateway_configuration(const char* conf_file) {
         lgw_log(LOG_INFO, "[INFO~][SETTING] GW description: \"%s\"\n", GW.info.description);
     }
 
+    val = json_object_get_value(conf_obj, "fcnt_gap");
+    if (val != NULL) {
+        GW.cfg.fcnt_gap = (uint8_t)json_value_get_number(val);
+        if (GW.cfg.fcnt_gap > 32 || GW.cfg.fcnt_gap < 8)
+            GW.cfg.fcnt_gap = 12;
+    }
+    lgw_log(LOG_INFO, "[INFO~][SETTING] FCNT_GAP is configured to %u, largest fcnt is %u \n", GW.cfg.fcnt_gap, 65536 * GW.cfg.fcnt_gap);
+
     /*
     val = json_object_get_value(conf_obj, "status_index");
     if (json_value_get_type(val) == JSONNumber) {

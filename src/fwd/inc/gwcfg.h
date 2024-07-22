@@ -251,6 +251,7 @@ typedef struct {
         bool     custom_downlink;         /*!> if make a custome downlink to node */
         time_t   last_loop;               /*!> timestamp for watchdog */
         uint32_t time_interval;           /*!> time interval for send status(seconds) */
+        uint8_t  fcnt_gap;
         char   time_diff[8];              /*!> time diff of UTC, UTC + diff = TZ */
         char   ghost_host[32];
         char   ghost_port[16];
@@ -358,6 +359,7 @@ typedef struct {
                               .cfg.radiostream_enabled = true,                       \
                               .cfg.ghoststream_enabled = false,                      \
                               .cfg.delay_enabled = false,                            \
+                              .cfg.fcnt_gap = 12,                                    \
                               .cfg.autoquit_threshold = 0,                           \
                               .cfg.mac_decode = false,                               \
                               .cfg.mac2file = false,                                 \

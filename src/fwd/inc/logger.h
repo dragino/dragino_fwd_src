@@ -42,6 +42,7 @@
 #define LOG_TIMERSYNC   0x200
 #define LOG_MEM         0x400
 
+#ifdef CFG_color
 #define NONE         "\033[m"
 #define WHITE        "\033[37m"
 #define RED          "\033[31m"
@@ -56,6 +57,22 @@
 #define PKTMSG       "\033[1;32m[PKTS~]\033[m"
 #define RELAYMSG     "\033[35m[RELAY]\033[m"
 #define STORAGEMSG   "\033[36m[STORAGE]\033[m"
+#else
+#define NONE         ""
+#define WHITE        ""
+#define RED          ""
+#define LIGHT_RED    ""
+#define GREEN        ""
+#define YELLOW       ""
+#define BLUE         ""
+#define INFOMSG      "[INFO~]"
+#define WARNMSG      "[WARNING~]"
+#define ERRMSG       "[ERROR~]"
+#define DEBUGMSG     "[DEBUG~]"
+#define PKTMSG       "[PKTS~]"
+#define RELAYMSG     "[RELAY]"
+#define STORAGEMSG   "[STORAGE]"
+#endif
 
 #define MSG(args...) printf(args) /* message that is destined to the user */
 

@@ -48,7 +48,7 @@
                 "forward_crc_disabled": false
             },
             {   
-                "server_name": "nametest",  
+                "server_name": "PKT",  
                 "enabled": true,
                 "server_type": "pkt"  
             }
