@@ -212,8 +212,9 @@ void ghost_stop(void) {
 /*!> Call this to pull data from the receive buffer for ghost nodes.. */
 int ghost_get(int max_pkt, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the number of available packets */
     int i = cnt_ghost;
-    if (cnt_ghost == 0) 
+    if (cnt_ghost == 0) {
         return 0;
+    }
 
 	pthread_mutex_lock(&cb_ghost);
 
@@ -231,7 +232,6 @@ int ghost_get(int max_pkt, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the n
 }
 
 static void thread_ghost(void) {
-	int i;						/*!> loop variable */
 
     struct timeval current_unix_time;
     uint32_t rec_us;

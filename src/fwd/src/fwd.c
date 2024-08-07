@@ -438,7 +438,7 @@ int main(int argc, char *argv[]) {
     int i;						/*!> loop variable and temporary variable for return value */
     struct sigaction sigact;	/*!> SIGQUIT&SIGINT&SIGTERM signal handling */
 
-    serv_s* serv_entry = NULL;  
+    //serv_s* serv_entry = NULL;  
 
 	/*!> threads */
 	pthread_t thrid_up;
@@ -447,8 +447,12 @@ int main(int argc, char *argv[]) {
 	pthread_t thrid_valid;
 	pthread_t thrid_jit;
 	pthread_t thrid_lbt_scan;
+#ifdef SX1302MOD
 	pthread_t thrid_ss;
+#endif
+#ifdef SX1301MOD
 	pthread_t thrid_timersync;
+#endif
 	pthread_t thrid_watchdog;
 
     /*!> Parse command line options */
@@ -477,10 +481,10 @@ int main(int argc, char *argv[]) {
 #endif
 
 	/*!> display version informations */
-	lgw_log(LOG_INFO, "%s*** Dragino Packet Forwarder for Lora Gateway ***%s\n", GREEN, NONE);
-	lgw_log(LOG_INFO, "%s*** LoRa concentrator HAL library version info %s ***%s\n", GREEN, lgw_version_info(), NONE);
-    lgw_log(LOG_INFO, "%s*** LoRa radio type of board is: %s ***\n", GREEN, GW.hal.board);
-	lgw_log(LOG_INFO, "%s*** Platform bytes endian is: %s ***%s\n", GREEN, isBigEndian() ? "\"BIGENDIAN\"" : "\"LITTLEENDIAN\"", NONE);
+	lgw_log(LOG_INFO, "*** Dragino Packet Forwarder for Lora Gateway ***\n");
+	lgw_log(LOG_INFO, "*** LoRa concentrator HAL library version info %s ***\n", lgw_version_info());
+    lgw_log(LOG_INFO, "*** LoRa radio type of board is: %s ***\n", GW.hal.board);
+	lgw_log(LOG_INFO, "*** Platform bytes endian is: %s ***\n", isBigEndian() ? "\"BIGENDIAN\"" : "\"LITTLEENDIAN\"");
 
 	/*!> configure signal handling */
 	sigemptyset(&sigact.sa_mask);

@@ -37,7 +37,6 @@
 #define DEFAULT_FSK_FDEV            25      /* FSK frequency deviation */
 #define DEFAULT_FSK_BR              50      /* FSK bitrate */
 #define DEFAULT_LORA_PREAMBLE_SIZE  8       /* LoRa preamble size */
-#define DEFAULT_PAYLOAD_SIZE        4       /* payload size, bytes */
 #define PUSH_TIMEOUT_MS             100
 
 /* The total number of buffer bytes equals: (GHST_RX_BUFFSIZE + GHST_TX_BUFFSIZE) * GHST_NM_RCV */

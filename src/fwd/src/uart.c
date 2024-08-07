@@ -20,13 +20,13 @@ int uart_open(const char* path)
     fd = open(path, O_RDWR | O_NOCTTY | O_NDELAY);
     //fd = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd == -1) {
-        //MSG_DEBUG(LOG_ERROR, "[TTY] uart open %s failed!", path);
+        //lgw_log(LOG_ERROR, "[TTY] uart open %s failed!", path);
         return -1;
     }
 
     /*!>
     if(fcntl(fd, F_SETFL, 0) < 0) {        
-        MSG_DEBUG(LOG_ERROR, "[LBT-TTY] fcntl setfl(0) failed!");
+        lgw_log(LOG_ERROR, "[LBT-TTY] fcntl setfl(0) failed!");
         return -1;
     }
     */
@@ -39,7 +39,7 @@ int uart_config(int fd, int baude, int c_flow, int bits, int parity, int stop)
     struct termios uart;
 
     if(tcgetattr(fd, &uart) != 0) {
-        MSG_DEBUG(LOG_ERROR, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
+        fprintf(stderr, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
         return -1;
     }
 
@@ -151,7 +151,7 @@ int uart_config(int fd, int baude, int c_flow, int bits, int parity, int stop)
     tcflush(fd, TCIFLUSH);                              //清空输入缓冲区
 
     if (tcsetattr(fd, TCSANOW, &uart) != 0) {            //激活配置
-        MSG_DEBUG(LOG_ERROR, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
+        fprintf(stderr, "[LBT-TTY] tcgetattr failed!(fd=%d)", fd);
         return -1;
     }
 
@@ -173,10 +173,10 @@ static int safe_read(int fd, char* vptr, int len)
             } else if(nread == 0) {
                 break;
             } else if (nread < 0) {
-                //MSG_DEBUG(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
+                //lgw_log(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
                 break;
             }
-            //MSG_DEBUG(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
+            //lgw_log(LOG_DEBUG, "DEBUG~ [TTY] read from uart (%s)\n", strerror(errno));
         }
         left -= nread;
         ptr += nread;
@@ -202,10 +202,10 @@ int uart_read(int fd, char* r_buf, int lenth, int timeout_ms)
     ret = select(fd + 1, &rfds, NULL, NULL, &tv);
     switch (ret) {
         case -1:
-            MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY-UART] select error!\n");
+            fprintf(stderr, "~DEBUG [TTY-UART] select error!\n");
             break;
         case 0:
-            MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY-UART] select time over!\n");
+            fprintf(stderr, "~DEBUG [TTY-UART] select time over!\n");
             break;
         default:
             cnt = safe_read(fd, r_buf, lenth);
@@ -254,16 +254,16 @@ int uart_read_bak(int fd, char* buf, int len, int timeout_ms)
         ret = select(fd + 1, &rset, NULL, NULL, &tv);
         if (ret <= 0) {
             if (ret == 0) {
-                MSG_DEBUG(LOG_DEBUG, "DEBUG~ [TTY] read from uart timeout\n");
+                fprintf(stderr, "DEBUG~ [TTY] read from uart timeout\n");
                 return -1;
             }
 
             if (errno == EINTR) {
-                //MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
+                //printf(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
                 continue;
             }
 
-            //MSG_DEBUG(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
+            //printf(LOG_DEBUG, "~DEBUG [TTY] read from uart (%s)\n", strerror(errno));
             return -errno;
 
         } else {

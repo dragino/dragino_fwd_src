@@ -27,8 +27,8 @@
 #ifndef __LGW_LOGGER_H
 #define __LGW_LOGGER_H
 
-#include <stdint.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #define LOG_INFO        0x01
 #define LOG_PKT         0x02
@@ -42,14 +42,10 @@
 #define LOG_TIMERSYNC   0x200
 #define LOG_MEM         0x400
 
+#define PRINT_SIZE      4096
+
+
 #ifdef CFG_color
-#define NONE         "\033[m"
-#define WHITE        "\033[37m"
-#define RED          "\033[31m"
-#define LIGHT_RED    "\033[1;31m"
-#define GREEN        "\033[32m"
-#define YELLOW       "\033[33m"
-#define BLUE         "\033[34m"
 #define INFOMSG      "\033[32m[INFO~]\033[m"
 #define WARNMSG      "\033[33m[WARNING~]\033[m"
 #define ERRMSG       "\033[1;31m[ERROR~]\033[m"
@@ -58,13 +54,6 @@
 #define RELAYMSG     "\033[35m[RELAY]\033[m"
 #define STORAGEMSG   "\033[36m[STORAGE]\033[m"
 #else
-#define NONE         ""
-#define WHITE        ""
-#define RED          ""
-#define LIGHT_RED    ""
-#define GREEN        ""
-#define YELLOW       ""
-#define BLUE         ""
 #define INFOMSG      "[INFO~]"
 #define WARNMSG      "[WARNING~]"
 #define ERRMSG       "[ERROR~]"
@@ -74,16 +63,8 @@
 #define STORAGEMSG   "[STORAGE]"
 #endif
 
-#define MSG(args...) printf(args) /* message that is destined to the user */
+#define MSG(args...) printf(args)
 
-#define lgw_msg(args...) printf(args) /* message that is destined to the user */
-
-#define lgw_log(FLAG, fmt, ...)                                       \
-            do  {                                                     \
-                if (FLAG & GW.log.debug_mask)                         \
-                    fprintf(stdout, fmt, ##__VA_ARGS__);              \
-                } while (0)
-
-#define MSG_DEBUG(FLAG, fmt, ...)                               
-
+void lgw_log(int FLAG, const char *format, ...);
+  
 #endif /* _LGW_LOGGER_H */

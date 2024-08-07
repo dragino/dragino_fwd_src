@@ -83,8 +83,6 @@ static void gwtraf_push_up(void* arg) {
 	/*!> allocate memory for packet fetching and processing */
 	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
 
-    rxpkts_s* rxpkt_entry = NULL;
-
 	/*!> local copy of GPS time reference */
 	bool ref_ok = false;		/*!> determine if GPS time reference must be used or not */
 	struct tref local_ref;		/*!> time reference used for UTC <-> timestamp conversion */

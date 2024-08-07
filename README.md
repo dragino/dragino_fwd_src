@@ -246,3 +246,6 @@ found MIC not match ?
 ## 2024/07/01 fwd-3.1.7
 添加fcnt_gap配置，配置这个参数可以调整fcnt的最大值.
 
+## 2024/07/01 fwd-3.1.9
+pkt_service.c 发现一隐藏bug,接收到空包时解码导致出错。
+

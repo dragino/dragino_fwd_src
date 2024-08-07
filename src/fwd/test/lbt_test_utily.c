@@ -93,9 +93,9 @@ int main(int argc, char* argv[])
             if (ret > 0) {  
                 //printf("read uart buffer: %s \n", buffer);
                 if (buffer[0] == 'F')
-                    printf("(%d) LBT_DETECT: CHANNEL is %sFREE%s \n", i, GREEN, NONE);
+                    printf("(%d) LBT_DETECT: CHANNEL is FREE \n", i);
                 else
-                    printf("(%d) LBT_DETECT: CHANNEL is %sBUSY%s \n", i, RED, NONE);
+                    printf("(%d) LBT_DETECT: CHANNEL is BUSY \n", i);
             }
 
             

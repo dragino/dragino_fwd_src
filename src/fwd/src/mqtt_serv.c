@@ -147,8 +147,6 @@ static int mqtt_checkconnected(mqttsession_s *session) {
 static int mqtt_send_uplink(mqttsession_s *session, char *uplink, int len) {
 
     int rc = FAILURE;
-    void *payload = NULL;
-    char *topic = NULL;
 
     MQTTMessage message;
     message.qos = QOS_UP;
@@ -233,12 +231,10 @@ void mqtt_stop(serv_s* serv) {
 static void mqtt_push_up(void* arg) {
     serv_s* serv = (serv_s*) arg;
 
-	int i, j;					/*!> loop variables */
+	int i;					/*!> loop variables */
     int err;
     int nb_pkt = 0;
 	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
-
-    rxpkts_s* rxpkt_entry = NULL;
 
     mqttsession_s* session = (mqttsession_s*)serv->net->mqtt->session;
 
@@ -302,12 +298,9 @@ static void mqtt_push_up(void* arg) {
 static int payload_deal(mqttsession_s* session, struct lgw_pkt_rx_s* p) {
     int i;
     char tmp[256] = {'\0'};
-    char chan_path[32] = {'\0'};
     char *chan_id = NULL;
     char *chan_data = NULL;
     int id_found = 0, data_size = p->size;
-
-    FILE *fp;
 
     for (i = 0; i < p->size; i++) {
         tmp[i] = p->payload[i];

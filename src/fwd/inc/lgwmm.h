@@ -33,6 +33,7 @@ extern "C" {
 #ifndef _LGW_MM_H
 #define _LGW_MM_H
 
+#include <stdarg.h> 
 /* IWYU pragma: private, include "fwd.h" */
 
 void *lgw_std_malloc(size_t size) attribute_malloc;

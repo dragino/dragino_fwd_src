@@ -147,8 +147,6 @@ static void thread_push_up(void* arg) {
     /*!> GPS synchronization variables */
     struct timespec pkt_utc_time;
     struct tm* x; /*!> broken-up UTC time */
-    struct timespec pkt_gps_time;
-    uint64_t pkt_gps_time_ms;
 
     /*!> mote info variables */
     LoRaMacMessageData_t macmsg;
@@ -602,7 +600,7 @@ static void thread_push_up(void* arg) {
         serv->net->sock_up = init_sock((char *)&serv->net->addr, (char *)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
 
     if (serv->net->sock_up == -1) {    
-        lgw_log(LOG_PKT, "%s[PKTS][%s-UP] send blocking ... %sDisconnect!%s\n", ERRMSG, serv->info.name, RED, NONE); 
+        lgw_log(LOG_PKT, "%s[PKTS][%s-UP] send blocking ... Disconnect!\n", ERRMSG, serv->info.name); 
         lgw_free(serv_ct);
         return;
     }
@@ -1497,7 +1495,7 @@ static void semtech_push_up(void* arg) {
     serv_s* serv = (serv_s*) arg;
     int nb_pkt = 0;
 
-    lgw_log(LOG_INFO, "%s[THREAD][%s] Starting...\n", INFOMSG, serv->info.name);
+    lgw_log(LOG_INFO, "%s[THREAD][%s] Semtech UP service Starting...\n", INFOMSG, serv->info.name);
 
 	while (!serv->thread.stop_sig) {
         sem_wait(&serv->thread.sema);

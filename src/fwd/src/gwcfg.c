@@ -1873,6 +1873,12 @@ static int parse_gateway_configuration(const char* conf_file) {
                 }
 
             } //end of not as pkt type
+            serv_entry->filter.fwd_valid_pkt = true;
+            serv_entry->filter.fwd_error_pkt = true;
+            serv_entry->filter.fwd_nocrc_pkt = true;
+            serv_entry->filter.fport = NOFILTER;
+            serv_entry->filter.devaddr = NOFILTER;
+            serv_entry->filter.nwkid = NOFILTER;
 
             val = json_object_get_value(serv_obj, "forward_crc_valid");
             if (val != NULL) {

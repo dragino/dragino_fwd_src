@@ -93,7 +93,6 @@ int relay_stop(serv_s* serv) {
 
 static void relay_push_up(void* arg) {
     serv_s* serv = (serv_s*) arg;
-    int nb_pkt = 0;
     int i = 0, j = 0, l = 0;
 
     char buffer[544] = {'\0'};
@@ -107,7 +106,7 @@ static void relay_push_up(void* arg) {
         do {
             serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
             serv_ct->serv = serv;
-            nb_pkt = serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
+            serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
                                                                //
             if (serv_ct->nb_pkt == 0) { 
                 lgw_free(serv_ct);

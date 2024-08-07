@@ -31,7 +31,7 @@
 * format: txt, hex
 **/
 
-#define DEFAULT_PAYLOAD_SIZE        256
+#define PKT_PAYLOAD_SIZE        256
 #define DEFAULT_DOWN_FPORT          2
 
 #define DNPATH                      "/var/iot/push" 

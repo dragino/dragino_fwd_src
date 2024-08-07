@@ -99,7 +99,7 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
 
     uint32_t dwfcnt = 1;
 
-    uint8_t payload_en[DEFAULT_PAYLOAD_SIZE] = {'\0'};  /*!> data which have decrypted */
+    uint8_t payload_en[PKT_PAYLOAD_SIZE] = {'\0'};  /*!> data which have decrypted */
     struct lgw_pkt_tx_s txpkt;
 
     enum jit_error_e jit_result = JIT_ERROR_OK;
@@ -405,20 +405,18 @@ static uint32_t timeval_sub(struct timeval *a, struct timeval *b) {
 static void thread_pkt_deal_up(void* arg) {
     serv_ct_s* serv_ct = (serv_ct_s*) arg;
     serv_s* serv = serv_ct->serv;
-    pthread_t tid = pthread_self();
+    //pthread_t tid = pthread_self();
     
 	int i, j;					/*!> loop variables */
-    int fsize = 0;
-    int index = 0;
+
+    int fsize = 0;              /* FRMpayload size */
 
 	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
 
-	int buff_index;
-
     enum jit_error_e jit_result = JIT_ERROR_OK;
     
-    uint8_t payload_encrypt[DEFAULT_PAYLOAD_SIZE] = {'\0'};
-    uint8_t payload_txt[DEFAULT_PAYLOAD_SIZE] = {'\0'};
+    uint8_t payload_encrypt[PKT_PAYLOAD_SIZE] = {'\0'};
+    uint8_t payload_txt[PKT_PAYLOAD_SIZE] = {'\0'};
 
     LoRaMacMessageData_t macmsg;
 
@@ -449,9 +447,14 @@ static void thread_pkt_deal_up(void* arg) {
             default:
                 continue; /*!> skip that packet */
         }
+        
+        /* MHDR: 1byte; FHDR: 7byte ; FPORT: 1byte;  MIC: 4byte , total: 13 */
+        fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
 
-        if (p->size < 13) /*!> offset of frmpayload */
+        if (fsize < 1) {
+            lgw_log(LOG_DEBUG, "%s[DECODE] frmpayload (fsize=%d) not match!\n", DEBUGMSG, fsize);
             continue;
+        }
 
         /*!>for G2G(relay) 
          ** Receive downlink from other GW **
@@ -489,15 +492,11 @@ static void thread_pkt_deal_up(void* arg) {
             continue;   /*!> next packet */
         }
 
-        /*!>*** Test G2G ****** TODO **************
-        ****************************************
-        ***************************************/
-
         memset(&macmsg, 0, sizeof(macmsg));
         macmsg.Buffer = p->payload;
         macmsg.BufSize = p->size;
 
-        if (LoRaMacParserData(&macmsg) != LORAMAC_PARSER_SUCCESS)    /*!> MAC decode */
+        if (LORAMAC_PARSER_SUCCESS != LoRaMacParserData(&macmsg))    /*!> MAC decode */
             continue;
 
         if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || serv->filter.nwkid != NOFILTER) {
@@ -538,6 +537,7 @@ static void thread_pkt_deal_up(void* arg) {
                 lgw_log(LOG_DEBUG, "%02X", devinfo.nwkskey[j]);
             }
             lgw_log(LOG_DEBUG, "\n");
+
             */
 
             lgw_log(LOG_DEBUG, "%s[DECODE][PAYLOAD][size:%d]#############################################\n", DEBUGMSG, p->size);
@@ -549,13 +549,11 @@ static void thread_pkt_deal_up(void* arg) {
             if (GW.cfg.mac_decode) {
                 uint32_t fcnt, mic;
 				bool fcnt_valid = false;
-                fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
-                memcpy(payload_encrypt, p->payload + 9 + macmsg.FHDR.FCtrl.Bits.FOptsLen, fsize);
-                for (j = 0; j < GW.cfg.fcnt_gap; j++) {   // loop 8 times
+                lgw_memcpy(payload_encrypt, p->payload + 9 + macmsg.FHDR.FCtrl.Bits.FOptsLen, fsize);
+                for (j = 0; j < GW.cfg.fcnt_gap; j++) {   
                     fcnt = macmsg.FHDR.FCnt | (j * 0x10000);
-                    // msglen = p-size - len(MIC)
+                    /* msglen = p-size - len(MIC) */
                     LoRaMacComputeMic(p->payload, p->size - 4, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, &mic);
-                    //lgw_log(LOG_DEBUG, "%s[MIC] mic=%08X, MIC=%08X, fcnt=%u, FCNT=%u\n", DEBUGMSG, mic, macmsg.MIC, fcnt, macmsg.FHDR.FCnt);
                     if (mic == macmsg.MIC) {
                         fcnt_valid = true;
                         lgw_log(LOG_DEBUG, "%s[DECODE] Found a match MIC, fcnt=(%u)\n", DEBUGMSG, fcnt);
@@ -564,22 +562,21 @@ static void thread_pkt_deal_up(void* arg) {
                 }
 
                 if (!fcnt_valid) {
-                    fcnt = macmsg.FHDR.FCnt & 0xFFFFFFFF;
+                    fcnt = macmsg.FHDR.FCnt;
                 }
-                
+
                 if (macmsg.FPort == 0)
                     LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.nwkskey, devinfo.devaddr, UP, fcnt, payload_txt);
                 else
                     LoRaMacPayloadDecrypt(payload_encrypt, fsize, devinfo.appskey, devinfo.devaddr, UP, fcnt, payload_txt);
 
                 /*!> Debug message of decoded payload */
-                /*!>
-                */
-                lgw_log(LOG_DEBUG, "\n%s[DECODED][PAYLOAD][SIZE:%d]##########################################\n", DEBUGMSG, fsize);
-                for (j = 0; j < fsize; ++j) {
+                /*!>*/
+                lgw_log(LOG_DEBUG, "\n%s[DECODED][DECRYPT][SIZE:%d]##########################################\n", DEBUGMSG, fsize);
+                for (j = 0; j < fsize; j++) {
                     lgw_log(LOG_DEBUG, "%02X", payload_txt[j]);
                 }
-                lgw_log(LOG_DEBUG, "\n%s[DECODE][PAYLOAD]####################################################\n", DEBUGMSG);
+                lgw_log(LOG_DEBUG, "\n%s[DECODE][DECRYPT]####################################################\n", DEBUGMSG);
 
                 if (GW.cfg.mac2file) {
                     FILE *fp;
@@ -604,8 +601,8 @@ static void thread_pkt_deal_up(void* arg) {
                     if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
                         lgw_db_put(db_family, "index", "0");
                     } else 
-                        index = atoi(tmpstr) % 9;
-                    sprintf(db_family, "/payload/%08X/%d", devinfo.devaddr, index);
+                        j = atoi(tmpstr) % 9;
+                    sprintf(db_family, "/payload/%08X/%d", devinfo.devaddr, j);
                     sprintf(db_key, "%u", p->count_us);
                     lgw_db_put(db_family, db_key, (char*)payload_txt);
                 }
@@ -665,7 +662,7 @@ static void pkt_prepare_downlink(void* arg) {
     uint8_t dnpld[256];
     uint8_t hexpld[256];
     uint8_t hexopt[16];
-    uint8_t swap_str[32];
+    char swap_str[32];
 
     uint32_t bw_display;
     
@@ -827,7 +824,7 @@ static void pkt_prepare_downlink(void* arg) {
                 /*!>* 12. tx opts **/
                 if ((j = strcpypt(swap_str, (char*)buff_down, &start, size, sizeof(swap_str))) > 0) {
                     if (entry->optlen > 0 && (j < 32)) {
-                        hex2str(swap_str, hexopt, j);
+                        hex2str((uint8_t*)swap_str, hexopt, j);
                         entry->fopt = lgw_malloc(sizeof(uint8_t) * j/2);
                         lgw_memcpy(entry->fopt, hexopt, j/2);
                         entry->optlen = j/2;  // fix optlen 

@@ -81,8 +81,6 @@ int delay_start(serv_s* serv) {
     if (!GW.cfg.delay_enabled)
         return -1;
 
-    int rc;
-
     if (lgw_pthread_create_background(&serv->thread.t_up, NULL, (void *(*)(void *))delay_package_thread, serv)) {
         lgw_log(LOG_WARNING, "%s[%s] Can't create delay push up pthread.\n", WARNMSG, serv->info.name);
         serv->state.live = false;
@@ -194,7 +192,6 @@ int delay_pkt_get(int max, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the n
         }
 
         uint32_t id = 0; 
-        uint32_t tmst = 0;
         const void *rxpkt = NULL;
         int pkts = 0;
 

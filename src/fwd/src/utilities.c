@@ -25,12 +25,12 @@
  */
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
 
 #include "fwd.h"
+#include "logger.h"
 #include "utilities.h"
 
 #define RAND_LOCAL_MAX 2147483647L
@@ -205,17 +205,17 @@ int lgw_pthread_create_stack(pthread_t *thread, pthread_attr_t *attr, void *(*st
 	   PTHREAD_EXPLICIT_SCHED in the attr argument; instead they must set
 	   the priority afterwards with pthread_setschedparam(). */
 	if ((errno = pthread_attr_setinheritsched(attr, PTHREAD_INHERIT_SCHED)))
-		MSG_DEBUG(LOG_WARNING, "pthread_attr_setinheritsched: %s\n", strerror(errno));
+		lgw_log(LOG_WARNING, "pthread_attr_setinheritsched: %s\n", strerror(errno));
 #endif
 
 	if (!stacksize)
 		stacksize = LGW_STACKSIZE;
 
 	if ((errno = pthread_attr_setstacksize(attr, stacksize ? stacksize : LGW_STACKSIZE)))
-		MSG_DEBUG(LOG_WARNING, "pthread_attr_setstacksize: %s\n", strerror(errno));
+		lgw_log(LOG_WARNING, "pthread_attr_setstacksize: %s\n", strerror(errno));
 
 	if ((res = pthread_create(thread, attr, start_routine, data))) /*!> We're in lgw_pthread_create, so it's okay */
-	    MSG_DEBUG(LOG_ERROR, "%s->%s:%s:%d pthread_create: %s\n", caller, file, start_fn, line, strerror(res));
+	    lgw_log(LOG_ERROR, "%s->%s:%s:%d pthread_create: %s\n", caller, file, start_fn, line, strerror(res));
 
     return res;
 }
@@ -235,7 +235,7 @@ int lgw_pthread_create_detached_stack(pthread_t *thread, pthread_attr_t *attr, v
 	}
 
 	if ((errno = pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED)))
-		MSG_DEBUG(LOG_WARNING, "pthread_attr_setdetachstate: %s\n", strerror(errno));
+		lgw_log(LOG_WARNING, "pthread_attr_setdetachstate: %s\n", strerror(errno));
 
 	res = lgw_pthread_create_stack(thread, attr, start_routine, data, stacksize, file, caller, line, start_fn);
 
@@ -271,7 +271,7 @@ void DO_CRASH_NORETURN __lgw_assert_failed(int condition, const char *condition_
 	 * someone saw the message on stderr ...
 	 */
 	fprintf(stderr, "FRACK!, Failed assertion %s (%d) at line %d in %s of %s\n", condition_str, condition, line, function, file);
-	MSG_DEBUG(LOG_ERROR, file, line, function, "FRACK!, Failed assertion %s (%d)\n", condition_str, condition);
+	lgw_log(LOG_ERROR, file, line, function, "FRACK!, Failed assertion %s (%d)\n", condition_str, condition);
 
 	/*!> Generate a backtrace for the assert */
 	//lgw_log_backtrace();
@@ -286,7 +286,8 @@ void DO_CRASH_NORETURN __lgw_assert_failed(int condition, const char *condition_
 }
 
 int Close(int fildes) {
-    if (fildes > 0)
+    if (fildes > 0) 
         close(fildes);
+    return 0;
 }
 

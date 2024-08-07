@@ -28,18 +28,18 @@
  */
 
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
 
 #include "fwd.h"
+#include "logger.h"
 
 #define MALLOC_FAILURE_MSG \
-      MSG_DEBUG(LOG_MEM, "Memory Allocation Failure in function %s at line %d of %s\n", func, lineno, file)
+      lgw_log(LOG_MEM, "Memory Allocation Failure in function %s at line %d of %s\n", func, lineno, file)
 
 #define FREE_FAILURE_MSG \
-      MSG_DEBUG(LOG_MEM, "Memory Point to NULL in function %s at line %d of %s\n", func, lineno, file)
+      lgw_log(LOG_MEM, "Memory Point to NULL in function %s at line %d of %s\n", func, lineno, file)
 
 void __lgw_free(void *ptr, const char *file, int lineno, const char *func)
 {
