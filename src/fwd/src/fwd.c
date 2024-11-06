@@ -188,6 +188,7 @@ static void thread_spectral_scan(void);
 
 static void usage( void )
 {
+
     printf("~~~ Library version string~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     printf(" %s\n", lgw_version_info());
     printf("~~~ Available options ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
@@ -196,6 +197,7 @@ static void usage( void )
     printf(" -d radio module [sx1301, sx1302, sx1308]'\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 }
+
 
 static void sig_handler(int sigio) {
 	if (sigio == SIGQUIT) {
@@ -440,20 +442,20 @@ int main(int argc, char *argv[]) {
 
     //serv_s* serv_entry = NULL;  
 
-	/*!> threads */
-	pthread_t thrid_up;
-	pthread_t thrid_recycle;
-	pthread_t thrid_gps;
-	pthread_t thrid_valid;
-	pthread_t thrid_jit;
-	pthread_t thrid_lbt_scan;
+    /*!> threads */
+    pthread_t thrid_up;
+    pthread_t thrid_recycle;
+    pthread_t thrid_gps;
+    pthread_t thrid_valid;
+    pthread_t thrid_jit;
+    pthread_t thrid_lbt_scan;
 #ifdef SX1302MOD
-	pthread_t thrid_ss;
+    pthread_t thrid_ss;
 #endif
 #ifdef SX1301MOD
-	pthread_t thrid_timersync;
+    pthread_t thrid_timersync;
 #endif
-	pthread_t thrid_watchdog;
+    pthread_t thrid_watchdog;
 
     /*!> Parse command line options */
     while( (i = getopt( argc, argv, "hc:" )) != -1 )
@@ -480,20 +482,20 @@ int main(int argc, char *argv[]) {
     strcpy(GW.hal.board, "sx1302");
 #endif
 
-	/*!> display version informations */
-	lgw_log(LOG_INFO, "*** Dragino Packet Forwarder for Lora Gateway ***\n");
-	lgw_log(LOG_INFO, "*** LoRa concentrator HAL library version info %s ***\n", lgw_version_info());
+    /*!> display version informations */
+    lgw_log(LOG_INFO, "*** Dragino Packet Forwarder for Lora Gateway ***\n");
+    lgw_log(LOG_INFO, "*** LoRa concentrator HAL library version info %s ***\n", lgw_version_info());
     lgw_log(LOG_INFO, "*** LoRa radio type of board is: %s ***\n", GW.hal.board);
-	lgw_log(LOG_INFO, "*** Platform bytes endian is: %s ***\n", isBigEndian() ? "\"BIGENDIAN\"" : "\"LITTLEENDIAN\"");
+    lgw_log(LOG_INFO, "*** Platform bytes endian is: %s ***\n", isBigEndian() ? "\"BIGENDIAN\"" : "\"LITTLEENDIAN\"");
 
-	/*!> configure signal handling */
-	sigemptyset(&sigact.sa_mask);
-	sigact.sa_flags = 0;
-	sigact.sa_handler = sig_handler;
-	sigaction(SIGQUIT, &sigact, NULL);	/*!> Ctrl-\ */
-	sigaction(SIGINT, &sigact, NULL);	/*!> Ctrl-C */
-	sigaction(SIGTERM, &sigact, NULL);	/*!> default "kill" command */
-	sigaction(SIGQUIT, &sigact, NULL);	/*!> Ctrl-\ */
+    /*!> configure signal handling */
+    sigemptyset(&sigact.sa_mask);
+    sigact.sa_flags = 0;
+    sigact.sa_handler = sig_handler;
+    sigaction(SIGQUIT, &sigact, NULL);	/*!> Ctrl-\ */
+    sigaction(SIGINT, &sigact, NULL);	/*!> Ctrl-C */
+    sigaction(SIGTERM, &sigact, NULL);	/*!> default "kill" command */
+    sigaction(SIGQUIT, &sigact, NULL);	/*!> Ctrl-\ */
 
     /*!> staring database for temporary data */
     if (lgw_db_init()) {
@@ -638,7 +640,7 @@ int main(int argc, char *argv[]) {
 	service_start();
 
     while (GW.info.service_count == 0) {
-		lgw_log(LOG_WARNING, "%s[FWD] NO service provide! WAIT...\n", WARNMSG);
+	lgw_log(LOG_WARNING, "%s[FWD] NO service provide! WAIT...\n", WARNMSG);
         wait_ms(1000);
     }
 
@@ -652,44 +654,45 @@ int main(int argc, char *argv[]) {
             lgw_log(LOG_INFO, "%s[FWD] Can't start Ghost listener!\n", INFOMSG);
     }
 
-	/*!> starting the concentrator */
-	if (GW.cfg.radiostream_enabled == true) {
-		lgw_log(LOG_INFO, "%s[FWD] Starting the concentrator\n", INFOMSG);
+    /*!> starting the concentrator */
+    if (GW.cfg.radiostream_enabled == true) {
+	lgw_log(LOG_INFO, "%s[FWD] Starting the concentrator\n", INFOMSG);
         if (system("/usr/bin/reset_lgw.sh start") != 0) {
             lgw_log(LOG_ERROR, "%s[FWD] failed to start SX130X, Please start again!\n", ERRMSG);
-		    exit_sig = true;
+            exit_sig = true;
             exit(EXIT_FAILURE);
         } 
-		i = lgw_start();
-		if (i == LGW_HAL_SUCCESS) {
+
+        i = lgw_start();
+        if (i == LGW_HAL_SUCCESS) {
             lgw_db_put("loraradio", "radiostream", "running");
-			lgw_log(LOG_INFO, "%s[FWD] concentrator started, radio packets can now be received.\n", INFOMSG);
-		} else {
+            lgw_log(LOG_INFO, "%s[FWD] concentrator started, radio packets can now be received.\n", INFOMSG);
+        } else {
             lgw_db_put("loraradio", "radiostream", "hangup");
-			lgw_log(LOG_ERROR, "%s[FWD] failed to start the concentrator\n", ERRMSG);
-		    exit_sig = true;
-			exit(EXIT_FAILURE);
-		}
-        /*
+            lgw_log(LOG_ERROR, "%s[FWD] failed to start the concentrator\n", ERRMSG);
+            exit_sig = true;
+            exit(EXIT_FAILURE);
+        }
+
         if (!strncasecmp(GW.hal.board, "sx1302", 6)) {   
             uint64_t eui;
             i = lgw_get_eui(&eui);
             if (i == LGW_HAL_SUCCESS) {
-                lgw_log(LOG_INFO, "%s[FWD] concentrator EUI 0x%016" PRIx64 "\n", INFOMSG, eui);
+                lgw_log(LOG_INFO, "%s[FWD] concentrator EUID=0x%016" PRIx64 "\n", INFOMSG, eui);
             }
         }
-        */
-	} else {
-		lgw_log(LOG_WARNING, "%s[FWD] Radio is disabled, radio packets cannot be sent or received.\n", WARNMSG);
-	}
+
+    } else {
+	lgw_log(LOG_WARNING, "%s[FWD] Radio is disabled, radio packets cannot be sent or received.\n", WARNMSG);
+    }
 
     if (lgw_pthread_create(&thrid_up, NULL, (void *(*)(void *))thread_up, NULL))
-		lgw_log(LOG_ERROR, "%s[FWD] impossible to create data up thread\n", ERRMSG);
+        lgw_log(LOG_ERROR, "%s[FWD] impossible to create data up thread\n", ERRMSG);
     else
         lgw_db_put("thread", "thread_up", "running");
 
     if (lgw_pthread_create(&thrid_recycle, NULL, (void *(*)(void *))thread_rxpkt_recycle, NULL))
-		lgw_log(LOG_ERROR, "%s[FWD] impossible to create rxpkt recycle thread\n", ERRMSG);
+	lgw_log(LOG_ERROR, "%s[FWD] impossible to create rxpkt recycle thread\n", ERRMSG);
     else
         lgw_db_put("thread", "thread_rxpkt_recycle", "running");
 
@@ -697,20 +700,19 @@ int main(int argc, char *argv[]) {
     jit_queue_init(&GW.tx.jit_queue[0]);
     jit_queue_init(&GW.tx.jit_queue[1]);
 
-	// Timer synchronization needed for downstream ...
+    // Timer synchronization needed for downstream ...
 #ifdef SX1301MOD
-        if (lgw_pthread_create(&thrid_timersync, NULL, (void *(*)(void *))thread_timersync, NULL))
-            lgw_log(LOG_ERROR, "%s[FWD] impossible to create Timer Sync thread\n", ERRMSG);
-        else
-            lgw_db_put("thread", "thread_timersync", "running");
+    if (lgw_pthread_create(&thrid_timersync, NULL, (void *(*)(void *))thread_timersync, NULL))
+        lgw_log(LOG_ERROR, "%s[FWD] impossible to create Timer Sync thread\n", ERRMSG);
+    else
+        lgw_db_put("thread", "thread_timersync", "running");
 #endif
 
     if (lgw_pthread_create(&thrid_jit, NULL, (void *(*)(void *))thread_jit, NULL)) {
         lgw_log(LOG_ERROR, "%s[FWD] impossible to create JIT thread\n", ERRMSG);
-		exit_sig = true;
+	exit_sig = true;
         exit(EXIT_FAILURE);
-	}
-    else
+    } else
         lgw_db_put("thread", "thread_jit", "running");
 
 #ifdef SX1302MOD
@@ -727,17 +729,17 @@ int main(int argc, char *argv[]) {
 
 	/*!> spawn thread to manage GPS */
 	if (GW.gps.gps_enabled == true) {
-		if (lgw_pthread_create(&thrid_gps, NULL, (void *(*)(void *))thread_gps, NULL))
-			lgw_log(LOG_ERROR, "%s[FWD] impossible to create GPS thread\n", ERRMSG);
-        else
-            lgw_db_put("thread", "thread_gps", "running");
-
-        if (GW.gps.time_ref == true) {
-            if (pthread_create(&thrid_valid, NULL, (void *(*)(void *))thread_valid, NULL))
-                lgw_log(LOG_ERROR, "%s[FWD] impossible to create validation thread\n", ERRMSG);
+	    if (lgw_pthread_create(&thrid_gps, NULL, (void *(*)(void *))thread_gps, NULL))
+	        lgw_log(LOG_ERROR, "%s[FWD] impossible to create GPS thread\n", ERRMSG);
             else
-                lgw_db_put("thread", "thread_valid", "running");
-        }
+                lgw_db_put("thread", "thread_gps", "running");
+
+            if (GW.gps.time_ref == true) {
+                if (pthread_create(&thrid_valid, NULL, (void *(*)(void *))thread_valid, NULL))
+                    lgw_log(LOG_ERROR, "%s[FWD] impossible to create validation thread\n", ERRMSG);
+                else
+                    lgw_db_put("thread", "thread_valid", "running");
+            }
 	}
 
 	/*!> spawn thread for watchdog */

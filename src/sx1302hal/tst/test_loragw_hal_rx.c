@@ -31,6 +31,7 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #include <signal.h>
 #include <math.h>
 #include <getopt.h>
+#include <inttypes.h>
 
 #include "loragw_hal.h"
 #include "loragw_reg.h"
@@ -71,6 +72,7 @@ void usage(void) {
     printf("Library version information: %s\n", lgw_version_info());
     printf("Available options:\n");
     printf(" -h print this help\n");
+    printf(" -v print module euid\n");
     printf(" -u            set COM type as USB (default is SPI)\n");
     printf(" -d <path>     COM path to be used to connect the concentrator\n");
     printf("               => default path: " COM_PATH_DEFAULT "\n");
@@ -86,6 +88,25 @@ void usage(void) {
     printf(" -p            lorawan public config\n");
     printf( "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" );
     printf(" --fdd         Enable Full-Duplex mode (CN490 reference design)\n");
+}
+
+int get_euid(char* com_path) {
+    int x;
+    uint64_t eui;
+
+    x = lgw_connect(LGW_COM_SPI, com_path);
+
+    if (x == LGW_REG_SUCCESS) {
+        x = lgw_get_eui(&eui);
+        if (x == LGW_HAL_SUCCESS) {
+            printf("INFO: concentrator EUID=0x%016" PRIx64 "\n", eui);
+        }
+        x = lgw_disconnect();
+    }
+
+    system("reset_lgw.sh stop");
+
+    return x;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -112,6 +133,8 @@ int main(int argc, char **argv)
     float rssi_offset = 0.0;
     bool full_duplex = false;
     bool lorawan_p = true;
+
+    bool get_eui = false;
 
     struct lgw_conf_board_s boardconf;
     struct lgw_conf_rxrf_s rfconf;
@@ -158,7 +181,7 @@ int main(int argc, char **argv)
     };
 
     /* parse command line options */
-    while ((i = getopt_long(argc, argv, "hja:b:k:r:n:z:m:o:d:up", long_options, &option_index)) != -1) {
+    while ((i = getopt_long(argc, argv, "hja:b:k:r:n:z:m:o:d:vup", long_options, &option_index)) != -1) {
         switch (i) {
             case 'h':
                 usage();
@@ -260,6 +283,8 @@ int main(int argc, char **argv)
             case 'p':
                 lorawan_p = false;
                 break;
+            case 'v':
+                return get_euid(com_path);
             case 0:
                 if (strcmp(long_options[option_index].name, "fdd") == 0) {
                     full_duplex = true;
@@ -285,6 +310,7 @@ int main(int argc, char **argv)
 
     printf("===== sx1302 HAL RX test =====\n");
 
+    
     /* Configure the gateway */
     memset( &boardconf, 0, sizeof boardconf);
     if (lorawan_p)
@@ -383,6 +409,7 @@ int main(int argc, char **argv)
             printf("ERROR: failed to start the gateway\n");
             return EXIT_FAILURE;
         }
+
 
         /* Loop until we have enough packets with CRC OK */
         printf("Waiting for packets...\n");

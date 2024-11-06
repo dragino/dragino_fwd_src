@@ -231,6 +231,7 @@ typedef struct {
 
     struct {
         char board[16];         // SX1301(LG301) / SX1308(LG308) / SX1302(LG302) / SX1276 (LG02)
+        char spidev_path[32];
         bool xtal_correct_ok;
         double xtal_correct;
         uint8_t antenna_gain;

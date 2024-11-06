@@ -206,8 +206,10 @@ static void thread_push_up(void* arg) {
         macmsg.Buffer = p->payload;
         macmsg.BufSize = p->size;
 
-        if (LORAMAC_PARSER_SUCCESS != LoRaMacParserData(&macmsg))
+        if (LORAMAC_PARSER_SUCCESS != LoRaMacParserData(&macmsg)) {
             macmsg.BufSize = 0;
+            lgw_log(LOG_WARNING, "%s[PKTS][%s-UP] LoraMacParser error, not a valid LoraWan package(size=%d)!\n", WARNMSG, serv->info.name, p->size);
+        }
 
         /*!> basic packet filtering */
         pthread_mutex_lock(&serv->report->mx_report);
@@ -241,19 +243,24 @@ static void thread_push_up(void* arg) {
         }
 
         //lgw_log(LOG_DEBUG, "%s[PKTS][filter] packet has fport (%u), filter level (%d).\n", DEBUGMSG, macmsg.FPort, serv->filter.fport);
+        //
 
-        if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || serv->filter.nwkid != NOFILTER) {
-            if (pkt_basic_filter(serv, macmsg.FHDR.DevAddr, macmsg.FPort)) {
-                lgw_log(LOG_DEBUG, "%s[PKTS][%s-UP] Filter packet has fport(%u) of %08X.\n", DEBUGMSG, serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
-                pthread_mutex_unlock(&serv->report->mx_report);
-                continue;
+        if (macmsg.BufSize != 0) {
+            if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || serv->filter.nwkid != NOFILTER) {
+                if (pkt_basic_filter(serv, macmsg.FHDR.DevAddr, macmsg.FPort)) {
+                    lgw_log(LOG_DEBUG, "%s[PKTS][%s-UP] Filter packet has fport(%u) of %08X.\n", DEBUGMSG, serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
+                    pthread_mutex_unlock(&serv->report->mx_report);
+                    continue;
+                }
             }
         }
 
         serv->report->stat_up.meas_up_pkt_fwd += 1;
         serv->report->stat_up.meas_up_payload_byte += p->size;
         pthread_mutex_unlock(&serv->report->mx_report);
-        lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received packages from mote: %08X (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.FHDR.DevAddr, macmsg.FHDR.FCnt);
+        if (macmsg.BufSize != 0) {
+            lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received packages from mote: %08X (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.FHDR.DevAddr, macmsg.FHDR.FCnt);
+        }
 
         /*!> Start of packet, add inter-packet separator if necessary */
         if (pkt_in_dgram == 0) {
@@ -930,18 +937,17 @@ static void semtech_pull_down(void* arg) {
                     next_beacon_gps_time.tv_sec += (retry * GW.beacon.beacon_period);
                     next_beacon_gps_time.tv_nsec = 0;
 
-#if DEBUG_BEACON
-                    {
+                    /*!> debug BEACON */
+                    if (LOG_BEACON & GW.log.debug_mask) {
                         time_t time_unix;
 
                         time_unix = GW.gps.time_reference_gps.gps.tv_sec + UNIX_GPS_EPOCH_OFFSET;
-                        lgw_log(DEBUG_BEACON, "%s[BEACON][%s] GPS-now : %s", DEBUGMSG, serv->info.name, ctime(&time_unix));
+                        lgw_log(LOG_BEACON, "%s[BEACON][%s] GPS-now : %s", DEBUGMSG, serv->info.name, ctime(&time_unix));
                         time_unix = last_beacon_gps_time.tv_sec + UNIX_GPS_EPOCH_OFFSET;
-                        lgw_log(DEBUG_BEACON, "%s[BEACON][%s] GPS-last: %s", DEBUGMSG, serv->info.name, ctime(&time_unix));
+                        lgw_log(LOG_BEACON, "%s[BEACON][%s] GPS-last: %s", DEBUGMSG, serv->info.name, ctime(&time_unix));
                         time_unix = next_beacon_gps_time.tv_sec + UNIX_GPS_EPOCH_OFFSET;
-                        lgw_log(DEBUG_BEACON, "%s[BEACON][%s] GPS-next: %s", DEBUGMSG, serv->info.name, ctime(&time_unix));
+                        lgw_log(LOG_BEACON, "%s[BEACON][%s] GPS-next: %s", DEBUGMSG, serv->info.name, ctime(&time_unix));
                     }
-#endif
 
                     /*!> convert GPS time to concentrator time, and set packet counter for JiT trigger */
                     lgw_gps2cnt(GW.gps.time_reference_gps, next_beacon_gps_time, &(beacon_pkt.count_us));
@@ -976,8 +982,8 @@ static void semtech_pull_down(void* arg) {
 #else
                    get_concentrator_time(&current_concentrator_time);
 #endif
-                    jit_result = jit_enqueue(&GW.tx.jit_queue[0], current_concentrator_time, &beacon_pkt, JIT_PKT_TYPE_BEACON);
-                    if (jit_result == JIT_ERROR_OK) {
+                   jit_result = jit_enqueue(&GW.tx.jit_queue[0], current_concentrator_time, &beacon_pkt, JIT_PKT_TYPE_BEACON);
+                   if (jit_result == JIT_ERROR_OK) {
                         /*!> update stats */
                         pthread_mutex_lock(&serv->report->mx_report);
                         serv->report->meas_nb_beacon_queued += 1;
@@ -1445,16 +1451,18 @@ static void semtech_pull_down(void* arg) {
                 }
             }
 
-            /*!> printf MAC header */
-            memset(&macmsg, 0, sizeof(macmsg));
             if (GW.cfg.td_enabled) {
                 txpkt.size = txpkt.size - 3;
                 txpkt.payload[txpkt.size] = '\0';
             }
+
+            /*!> printf MAC header */
+            memset(&macmsg, 0, sizeof(macmsg));
             macmsg.Buffer = txpkt.payload;
             macmsg.BufSize = txpkt.size;
-            if ( LORAMAC_PARSER_SUCCESS == LoRaMacParserData(&macmsg) )
+            if ( LORAMAC_PARSER_SUCCESS == LoRaMacParserData(&macmsg) ) {
                 decode_mac_pkt_down(&macmsg, &txpkt);
+            }
         }
 
         /*!>  wait pull interval seconds for pull message */

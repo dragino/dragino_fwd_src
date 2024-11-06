@@ -249,3 +249,10 @@ found MIC not match ?
 ## 2024/07/01 fwd-3.1.9
 pkt_service.c 发现一隐藏bug,接收到空包时解码导致出错。
 
+## 2024/09/21 fwd-3.1.9
+修改mac-header-decode.c: Fctrl里的上发包fpending应为classB位符
+semtech_serv.c: 打开beacon调试功能
+
+## 2024/10/14 fwd-3.2.0
+修改pkt_serv.c semtech_serv.c里面关于macmsg处理的方法
+

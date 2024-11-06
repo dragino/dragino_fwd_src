@@ -91,6 +91,7 @@ static int parse_SX130x_configuration(const char* conf_file) {
     str = json_object_get_string(conf_obj, "spidev_path");
     if (str != NULL) {
         strncpy(boardconf.com_path, str, sizeof(boardconf.com_path));
+        strncpy(GW.hal.spidev_path, str, sizeof(GW.hal.spidev_path));
         boardconf.com_path[sizeof(boardconf.com_path) - 1] = '\0'; 
     } else {
         lgw_log(LOG_INFO, "%s[SETTING] spidev path must be configured in %s\n", ERRMSG, conf_file);

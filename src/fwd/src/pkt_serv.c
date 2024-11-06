@@ -449,7 +449,7 @@ static void thread_pkt_deal_up(void* arg) {
         }
         
         /* MHDR: 1byte; FHDR: 7byte ; FPORT: 1byte;  MIC: 4byte , total: 13 */
-        fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
+        fsize = p->size - 13; 
 
         if (fsize < 1) {
             lgw_log(LOG_DEBUG, "%s[DECODE] frmpayload (fsize=%d) not match!\n", DEBUGMSG, fsize);

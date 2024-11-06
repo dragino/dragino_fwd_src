@@ -287,7 +287,7 @@ void DO_CRASH_NORETURN __lgw_assert_failed(int condition, const char *condition_
 
 int Close(int fildes) {
     if (fildes > 0) 
-        close(fildes);
+        return close(fildes);
     return 0;
 }
 
