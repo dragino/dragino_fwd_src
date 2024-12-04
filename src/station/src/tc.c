@@ -76,6 +76,7 @@ static void tc_muxs_connection (conn_t* _conn, int ev) {
             sys_backupConfig(SYS_CRED_TC);
         // Put CUPS to long back-off
         sys_delayCUPS();
+        log_status("ONLINE", 7);
         return;
     }
     if( ev == WSEV_DATASENT ) {
