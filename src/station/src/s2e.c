@@ -1835,10 +1835,12 @@ int s2e_onMsg (s2ctx_t* s2ctx, char* json, ujoff_t jsonlen) {
     case J_dnframe: {
         LOG(MOD_S2E|ERROR, "Received obsolete 'dnframe' message!");
         handle_dnframe(s2ctx, &D);
+        log_status("ONLINE", 7);
         break;
     }
     case J_dnmsg: {
         handle_dnmsg(s2ctx, &D);
+        log_status("ONLINE", 7);
         break;
     }
     case J_dnsched: {
