@@ -725,6 +725,7 @@ int sx130xconf_start (struct sx130xconf* sx130xconf, u4_t cca_region) {
         goto fail;
     }
     LOG(MOD_RAL|INFO, "Concentrator started (%~T)", rt_getTime()- t0);
+    log_status("ONLINE", 7);
 #if defined(CFG_smtcpico)
     {
         // Avoid timing issues with picocell MCU firmware - re-adjusts time after first TX

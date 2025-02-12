@@ -59,6 +59,7 @@ static void tc_muxs_connection (conn_t* _conn, int ev) {
         rt_clrTimer(&tc->timeout);
         tc->tstate = TC_MUXS_CONNECTED;
         LOG(MOD_TCE|VERBOSE, "Connected to MUXS.");
+        log_status("ONLINE", 7);
         dbuf_t b = ws_getSendbuf(&tc->ws, MIN_UPJSON_SIZE);
         assert(b.buf != NULL);   // this should not fail on a fresh connection
         uj_encOpen(&b, '{');

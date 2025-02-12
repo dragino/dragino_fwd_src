@@ -1,5 +1,8 @@
 tags
 todo*
+memo.txt
+update-version
+*.bak
 src/*-bak
 src/**/*.bak
 src/**/*.swp

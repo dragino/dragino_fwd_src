@@ -40,9 +40,15 @@ case "$1" in
         ;;
 esac
 
-echo "Starting build draginofwd for board: $board"
+echo "#### Build draginofwd for board: $board"
 
+echo "#### Clean retention files..."
+make clean
+
+echo "#### Prepare source files..."
 prepare "$board"
+
+echo "#### Build process..."
 
 if [[ "$board" = "rasp301" ]]; then
     echo "start compile libmpsse..."
@@ -55,11 +61,11 @@ else
     make -f makefile-hp0z  ||  exit 1
 fi
 
-echo "start make deb package..."
+echo "#### start make deb package..."
 
-echo "FWD build succeed, start make deb package..."
+echo "#### FWD build succeed, start make deb package..."
 
-echo "Deb package: draginofwd-${board}_${VER}.deb"
+echo "#### Deb package: draginofwd-${board}_${VER}.deb"
 
 rm -rf pi_pkg
 rm -rf draginofwd-*.deb

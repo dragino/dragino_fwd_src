@@ -256,3 +256,8 @@ semtech_serv.c: 打开beacon调试功能
 ## 2024/10/14 fwd-3.2.0
 修改pkt_serv.c semtech_serv.c里面关于macmsg处理的方法
 
+## 2024/12/04 fwd-3.2.0
+在tc.c文件的tc连接过程中增加stattion的状态输出
+
+## 2025/02/12 fwd-3.2.2
+在 semtech_serv.c 的push的send里加上线程的同步锁，避免发送时出现sock被关闭的情况

@@ -50,6 +50,8 @@
 #include "mac-header-decode.h"
 
 DECLARE_GW;
+extern int pthread_count;
+extern pthread_mutex_t mx_pthread_count;
 
 static void semtech_pull_down(void* arg);
 static void semtech_push_up(void* arg);
@@ -564,6 +566,9 @@ static void thread_push_up(void* arg) {
         } else {
             /*!> all packet have been filtered out and no report, restart loop */
             lgw_free(serv_ct);
+            pthread_mutex_lock(&mx_pthread_count);
+            pthread_count--;
+            pthread_mutex_unlock(&mx_pthread_count);
             return;
         }
     } else {
@@ -609,14 +614,21 @@ static void thread_push_up(void* arg) {
     if (serv->net->sock_up == -1) {    
         lgw_log(LOG_PKT, "%s[PKTS][%s-UP] send blocking ... Disconnect!\n", ERRMSG, serv->info.name); 
         lgw_free(serv_ct);
+        pthread_mutex_lock(&mx_pthread_count);
+        pthread_count--;
+        pthread_mutex_unlock(&mx_pthread_count);
         return;
     }
 
+    pthread_mutex_lock(&mx_pthread_count);
     if (send(serv->net->sock_up, (void *)buff_up, buff_index, 0) == -1) {
         lgw_log(LOG_PKT, "%s[PKTS][%s-UP] sending: %s\n", ERRMSG, serv->info.name, strerror(errno)); 
         lgw_free(serv_ct);
+        pthread_count--;
+        pthread_mutex_unlock(&mx_pthread_count);
         return;
     }
+    pthread_mutex_unlock(&mx_pthread_count);
 
     clock_gettime(CLOCK_MONOTONIC, &send_time);
 
@@ -651,6 +663,9 @@ static void thread_push_up(void* arg) {
         }
     }
     lgw_free(serv_ct);
+    pthread_mutex_lock(&mx_pthread_count);
+    pthread_count--;
+    pthread_mutex_unlock(&mx_pthread_count);
     //lgw_log(LOG_DEBUG, "THREAD~>> [%s tid=%ld] End of thread_semtech_push_up\n", serv->info.name, pthread_self());
 }
 
@@ -852,6 +867,8 @@ static void semtech_pull_down(void* arg) {
             pull_send = 0;
             pull_ack = 0;
 
+            pthread_mutex_lock(&mx_pthread_count);
+
             serv->state.connecting = false;
             GW.info.network_status = false;
             Close(serv->net->sock_down);   
@@ -859,6 +876,8 @@ static void semtech_pull_down(void* arg) {
 
             serv->net->sock_down = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
             serv->net->sock_up = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
+
+            pthread_mutex_unlock(&mx_pthread_count);
         }
         
 
@@ -1505,30 +1524,36 @@ static void semtech_push_up(void* arg) {
 
     lgw_log(LOG_INFO, "%s[THREAD][%s] Semtech UP service Starting...\n", INFOMSG, serv->info.name);
 
-	while (!serv->thread.stop_sig) {
+    while (!serv->thread.stop_sig) {
         sem_wait(&serv->thread.sema);
         do {
             serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
             serv_ct->serv = serv;
-            nb_pkt = serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
+            serv_ct->nb_pkt = get_rxpkt(serv_ct);     /* only get the first rxpkt of list */
+            nb_pkt = serv_ct->nb_pkt;                                                   
             if (serv_ct->nb_pkt == 0 && serv->report->report_ready == false) { 
                 lgw_free(serv_ct);
                 break;
             }
 
-            lgw_log(LOG_DEBUG, "%s[PKTS][%s] semtech_push_up fetch %d %s.\n", DEBUGMSG, serv->info.name, serv_ct->nb_pkt, serv_ct->nb_pkt < 2 ? "packet" : "packets");
-
             pthread_t ntid;
             if (lgw_pthread_create(&ntid, NULL, (void *(*)(void *))thread_push_up, (void*)serv_ct)) {
                 lgw_free(serv_ct);
-            } else
+            } else {
                 pthread_detach(ntid);
+                pthread_mutex_lock(&mx_pthread_count);
+                pthread_count++;
+                pthread_mutex_unlock(&mx_pthread_count);
+            }
+
+            lgw_log(LOG_DEBUG, "%s[PKTS][%s] semtech_push_up(count=%d) fetch %d %s.\n", DEBUGMSG, serv->info.name, pthread_count, serv_ct->nb_pkt, serv_ct->nb_pkt < 2 ? "packet" : "packets");
 
             if (nb_pkt == 0) break;
 
-        } while (GW.rxpkts_list.size > 1 && (!serv->thread.stop_sig));
+        } while (pthread_count < MAX_PTHREADS_COUNT && (GW.rxpkts_list.size > 1) && (!serv->thread.stop_sig));
+
     }
 
-	lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
+    lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
 }
 

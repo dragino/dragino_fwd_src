@@ -94,7 +94,13 @@
 #define GPS_REF_MAX_AGE     30	/* maximum admitted delay in seconds of GPS loss before considering latest GPS sync unusable */
                                 /* Number of seconds ellapsed between 01.Jan.1970 00:00:00 and 06.Jan.1980 00:00:00 */
 
-#define MAX_PTHREADS        3
+#ifdef HP0C
+#define MAX_PKT_PTHREADS          5
+#define MAX_PTHREADS_COUNT        32
+#else
+#define MAX_PKT_PTHREADS          3
+#define MAX_PTHREADS_COUNT        48
+#endif
 
 #define IF_DELAY            31  /*!> DELAY channel */
 

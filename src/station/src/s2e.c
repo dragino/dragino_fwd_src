@@ -192,6 +192,8 @@ void s2e_flushRxjobs (s2ctx_t* s2ctx) {
         } else {
             (*s2ctx->sendText)(s2ctx, &sendbuf);
             assert(sendbuf.buf==NULL);
+            //if (!(j->rssi % 10))  
+            //   log_status("ONLINE", 7);
         }
     }
 }
@@ -1829,18 +1831,19 @@ int s2e_onMsg (s2ctx_t* s2ctx, char* json, ujoff_t jsonlen) {
     }
     case J_router_config: {
         ok = handle_router_config(s2ctx, &D);
-        if( ok ) sys_inState(SYSIS_TC_CONNECTED);
+        if( ok ) {
+            sys_inState(SYSIS_TC_CONNECTED);
+            log_status("ONLINE", 7);
+        }
         break;
     }
     case J_dnframe: {
         LOG(MOD_S2E|ERROR, "Received obsolete 'dnframe' message!");
         handle_dnframe(s2ctx, &D);
-        log_status("ONLINE", 7);
         break;
     }
     case J_dnmsg: {
         handle_dnmsg(s2ctx, &D);
-        log_status("ONLINE", 7);
         break;
     }
     case J_dnsched: {

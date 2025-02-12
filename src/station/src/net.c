@@ -468,6 +468,7 @@ void ws_shutdown (ws_t* conn) {
     rt_clrTimer(&conn->tmr);
     conn->aio = NULL;
     conn->state = WS_CLOSED;
+    log_status("OFFLINE", 8);
     rt_yieldTo(&conn->tmr, triggerWsClosedEv);
 }
 
@@ -580,7 +581,6 @@ static void ws_connected_r (aio_t* aio) {
         dbuf_t wbuf = ws_getSendbuf(conn, plen);
         if( wbuf.buf == NULL ) {
             LOG(MOD_AIO|WARNING, "[%d] Cannot respond to PING message of length %d", conn->netctx.fd, plen);
-            log_status("OFFLINE", 8);
             break;
         }
         wbuf.buf[0-WSHDR_INTRA] = plen>>8;
@@ -764,6 +764,7 @@ static void ws_connecting (aio_t* aio) {
         conn->state = WS_CONNECTED;
         conn->evcb(conn, WSEV_CONNECTED);
         conn->rbeg = conn->rend; // signal lower level that we consumed this frame
+        log_status("ONLINE", 7);
         if( conn->aio )
             ws_connected_r(conn->aio);
         return;

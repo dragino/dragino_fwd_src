@@ -18,7 +18,7 @@ LLIBS := -lsx1301hal -L$(LGW_PATH) -lsqlite3 -lpthread -lm -lmpsse -L$(MQTT_PATH
 else ifdef HP0MOD
 APP_NAME = fwd_sx1302
 LGW_PATH = ../sx1302hal
-LCFLAGS = $(CFLAGS) -DSX1302MOD -fPIC -Iinc -I. -I../sx1302hal/inc -I../libmqtt
+LCFLAGS = $(CFLAGS) -DSX1302MOD -DHP0C -fPIC -Iinc -I. -I../sx1302hal/inc -I../libmqtt
 LLIBS := -lsx1302hal -L$(LGW_PATH) -lsqlite3 -lpthread -lm -L$(MQTT_PATH) -lpahomqtt3c
 else
 APP_NAME = fwd_sx1302

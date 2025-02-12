@@ -83,8 +83,8 @@ static char tmpstr[16] = {'\0'};
 
 LGW_LIST_HEAD_STATIC(dn_list, _dn_pkt); // downlink for customer
 
-static int pthread_list_size = 0;
-pthread_mutex_t  mx_pthread_list_size = PTHREAD_MUTEX_INITIALIZER;
+static int pthread_pkt_count = 0;
+pthread_mutex_t  mx_pthread_pkt_count = PTHREAD_MUTEX_INITIALIZER;
 
 static uint32_t current_concentrator_time;
 
@@ -548,7 +548,7 @@ static void thread_pkt_deal_up(void* arg) {
 
             if (GW.cfg.mac_decode) {
                 uint32_t fcnt, mic;
-				bool fcnt_valid = false;
+		bool fcnt_valid = false;
                 lgw_memcpy(payload_encrypt, p->payload + 9 + macmsg.FHDR.FCtrl.Bits.FOptsLen, fsize);
                 for (j = 0; j < GW.cfg.fcnt_gap; j++) {   
                     fcnt = macmsg.FHDR.FCnt | (j * 0x10000);
@@ -633,13 +633,13 @@ static void thread_pkt_deal_up(void* arg) {
 
     lgw_free(serv_ct);
 
-    pthread_mutex_lock(&mx_pthread_list_size);
-    pthread_list_size--;
-    pthread_mutex_unlock(&mx_pthread_list_size);
+    pthread_mutex_lock(&mx_pthread_pkt_count);
+    pthread_pkt_count--;
+    pthread_mutex_unlock(&mx_pthread_pkt_count);
 
     //gettimeofday(&end_us, NULL);
 
-    //lgw_log(LOG_DEBUG, "THREAD~>> [tid=%ld, end=%u:%u, start=%u:%u, sub=%u] (R=%d)\n", tid, end_us.tv_sec, end_us.tv_usec, start_us.tv_sec, start_us.tv_usec, timeval_sub(&start_us, &end_us), pthread_list_size);
+    //lgw_log(LOG_DEBUG, "THREAD~>> [tid=%ld, end=%u:%u, start=%u:%u, sub=%u] (R=%d)\n", tid, end_us.tv_sec, end_us.tv_usec, start_us.tv_sec, start_us.tv_usec, timeval_sub(&start_us, &end_us), pthread_pkt_count);
 }
 
 static void pkt_prepare_downlink(void* arg) {
@@ -1045,13 +1045,12 @@ static void pkt_deal_up(void* arg) {
 
 	while (!serv->thread.stop_sig) {
 
-		sem_wait(&serv->thread.sema);
+	    sem_wait(&serv->thread.sema);
 
-        //lgw_log(LOG_DEBUG, "THREAD~ [%s] current threads(=%d)\n", serv->info.name, pthread_list_size);
-
-        if (pthread_list_size > MAX_PTHREADS) {
-            continue;   //wait for 
-        }
+            if (pthread_pkt_count > MAX_PKT_PTHREADS) {
+                lgw_log(LOG_DEBUG, "THREAD~ [%s] WAR! More decode threads(=%d), skip current pacakege!\n", serv->info.name, pthread_pkt_count);
+                continue;   //wait for , next trigger, next time, will miss some package
+            }
 
         //do {
             serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
@@ -1063,25 +1062,19 @@ static void pkt_deal_up(void* arg) {
                 continue;
             }
 
-            pthread_mutex_lock(&mx_pthread_list_size);
-            pthread_list_size++;
-            pthread_mutex_unlock(&mx_pthread_list_size);
-
             pthread_t ntid;
-
-            lgw_log(LOG_DEBUG, "%s[THREAD][%s] pkt_push_up fetch %d %s.\n", DEBUGMSG, serv->info.name, serv_ct->nb_pkt, serv_ct->nb_pkt < 2 ? "packet" : "packets");
 
             if (lgw_pthread_create(&ntid, NULL, (void *(*)(void *))thread_pkt_deal_up, (void *)serv_ct)) {
                 lgw_free(serv_ct);
-
-                pthread_mutex_lock(&mx_pthread_list_size);
-                pthread_list_size--;
-                pthread_mutex_unlock(&mx_pthread_list_size);
-
                 lgw_log(LOG_WARNING, "%s[THREAD][%s] Can't create push_up pthread.\n", WARNMSG, serv->info.name);
             } else {
                 pthread_detach(ntid);
+                pthread_mutex_lock(&mx_pthread_pkt_count);
+                pthread_pkt_count++;
+                pthread_mutex_unlock(&mx_pthread_pkt_count);
             }
+
+            lgw_log(LOG_DEBUG, "%s[THREAD][%s] pkt_push_up(count=%d) fetch %d %s.\n", DEBUGMSG, serv->info.name, pthread_pkt_count, serv_ct->nb_pkt, serv_ct->nb_pkt < 2 ? "packet" : "packets");
 
         //} while (GW.rxpkts_list.size > 1 && (!serv->thread.stop_sig));  
     }
