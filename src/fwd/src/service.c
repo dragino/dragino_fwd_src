@@ -181,7 +181,7 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport, co
 			lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter not include \n", INFOMSG, serv->info.name, nwkid);
             break;
         case EXCLUDE:
-            if (!lgw_db_key_exist(nwkid_key) && addr>0)){
+            if (!lgw_db_key_exist(nwkid_key) && addr>0){
 				lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter exclude \n", INFOMSG, serv->info.name, nwkid);
                 return true; 
             }

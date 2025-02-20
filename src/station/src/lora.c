@@ -29,8 +29,7 @@
 #include "s2conf.h"
 #include "uj.h"
 #include "rt.h"
-#include "db.h"
-#include "sys_linux.h"
+#include "s2e.h"
 
 
 #define MHDR_FTYPE  0xE0
@@ -85,129 +84,8 @@
 uL_t* s2e_joineuiFilter;
 u4_t  s2e_netidFilter[4] = { 0xffFFffFF, 0xffFFffFF, 0xffFFffFF, 0xffFFffFF };
 
-typedef struct LoraMessage{
-	uint8_t fPort;
-	int32_t devAddr;
-	uint64_t deveui;
-}LoraMessage_t;
 
-bool basic_station_filter(StationFilter_t *pBSFilter, LoraMessage_t *LoraMessage) {
-    char addr_key[64] = {0};
-    char fport_key[64] = {0};
-    char nwkid_key[64] = {0};
-    char deveui_key[64] = {0};
-    uint8_t nwkid = 0;
-
-    snprintf(addr_key, sizeof(addr_key), "%s/devaddr/%08X", pBSFilter->server_name, LoraMessage->devAddr);
-    snprintf(fport_key, sizeof(fport_key), "%s/fport/%u", pBSFilter->server_name, LoraMessage->fPort);
-#ifdef BIGENDIAN
-    nwkid = (LoraMessage->devAddr >> 25) & 0x7F;   /* Devaddr Format:  31..25(NwkID)  24..0(NwkAddr) */
-#else
-    nwkid = (LoraMessage->devAddr) & 0x7F;
-#endif
-    snprintf(nwkid_key, sizeof(nwkid_key), "%s/nwkid/%02X", pBSFilter->server_name, nwkid);
-
-    char deveui_str[17]={0};
-    if(LoraMessage->deveui>0){
-    	sprintf(deveui_str, "%16llX", LoraMessage->deveui);
-    	deveui_str[16]='\0';
-		snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/%s", pBSFilter->server_name, deveui_str);
-    }else{
-		snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/", pBSFilter->server_name);
-    }
-
-	LOG(MOD_S2E|INFO, "[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, deveui-lv=%d, addr_key=%s, fport_key=%s, nwkid_key=%s, deveui_key=%s\n", 
-						pBSFilter->server_name, pBSFilter->filter.fport, pBSFilter->filter.devaddr, 
-						pBSFilter->filter.nwkid, pBSFilter->filter.deveui, addr_key, fport_key, 
-						nwkid_key, deveui_key);
-    
-    switch(pBSFilter->filter.fport) {
-        case INCLUDE: // 1
-            if (lgw_db_key_exist(fport_key)){
-				LOG(MOD_S2E|INFO, "[%s-filter] fport filter include\n", pBSFilter->server_name);
-				return true;  // filter
-			}
-			LOG(MOD_S2E|INFO, "[%s-filter] fport filter not include\n", pBSFilter->server_name);
-            break;
-        case EXCLUDE: // 2
-            if (!lgw_db_key_exist(fport_key) && LoraMessage->fPort!=0){
-				LOG(MOD_S2E|INFO, "[%s-filter] fport filter exclude\n", pBSFilter->server_name);
-                return true;  //filter
-			}
-			LOG(MOD_S2E|INFO, "[%s-filter] fport filter not exclude\n", pBSFilter->server_name);
-            break;
-        default:
-            LOG(MOD_S2E|INFO, "[%s-filter] fport no filter\n", pBSFilter->server_name);
-            break;
-    }
-
-    switch(pBSFilter->filter.devaddr) {
-        case INCLUDE: //1
-            if (lgw_db_key_exist(addr_key)){
-				LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter include\n", pBSFilter->server_name);
-                return true; // filter
-			}
-			LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter not include\n", pBSFilter->server_name);
-            break;
-        case EXCLUDE:
-            if (!lgw_db_key_exist(addr_key) && LoraMessage->devAddr>0){
-				LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter exclude\n", pBSFilter->server_name);
-                return true; 
-			}
-			LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter not exclude\n", pBSFilter->server_name);
-            break;
-        default:
-            LOG(MOD_S2E|INFO, "[%s-filter] devaddr no filter\n", pBSFilter->server_name);
-            break;
-    }
-
-    switch(pBSFilter->filter.nwkid) {
-        case INCLUDE: //1
-            if (lgw_db_key_exist(nwkid_key)){
-				LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter include \n", pBSFilter->server_name, nwkid);
-                return true; // filter
-			}
-			LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter not include \n", pBSFilter->server_name, nwkid);
-            break;
-        case EXCLUDE:
-            if (!lgw_db_key_exist(nwkid_key) && LoraMessage->devAddr>0){
-				LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter exclude \n", pBSFilter->server_name, nwkid);
-                return true; 
-            }
-			LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter not exclude \n", pBSFilter->server_name, nwkid);
-            break;
-        default:
-            LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) no filter\n", pBSFilter->server_name, nwkid);
-            break;
-    }
-
-	if(LoraMessage->deveui>0){
-		switch(pBSFilter->filter.deveui) {
-			case INCLUDE: //1
-				if (lgw_db_key_exist(deveui_key)){
-					LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter include \n", pBSFilter->server_name, deveui_str);
-					return true; // filter
-				}
-				LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter not include \n", pBSFilter->server_name, deveui_str);
-				break;
-			case EXCLUDE:
-				if (!lgw_db_key_exist(deveui_key)){
-					LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter exclude \n", pBSFilter->server_name, deveui_str);
-					return true; 
-				}
-				LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter not exclude \n", pBSFilter->server_name, deveui_str);
-				break;
-			default:
-				LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) no filter\n", pBSFilter->server_name, deveui_str);
-				break;
-		}
-	}
-	
-    return false;  // no-filter
-}
-
-
-int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf) {
+int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf, LoraMessage_t *pLoraMsg) {
     if( len == 0 ) {
     badframe:
         LOG(MOD_S2E|DEBUG, "Not a LoRaWAN frame: %16.4H", len, frame);
@@ -220,11 +98,8 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
 	goto badframe;
     }
     
-    LoraMessage_t lm;
-    memset(&lm, 0x00, sizeof(LoraMessage_t));
-    
     if( ftype == FRMTYPE_PROP || ftype == FRMTYPE_JACC ) {
-        str_t msgtype = ftype == FRMTYPE_PROP ? "[PropDF]" : "[JACC]";
+        str_t msgtype = ftype == FRMTYPE_PROP ? "propdf" : "jacc";
         uj_encKVn(buf,
                   "msgtype",   's', msgtype,
                   "FRMPayload",'H', len, &frame[0],
@@ -236,7 +111,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
         if( len != OFF_jreq_len)
             goto badframe;
         uL_t joineui = rt_rlsbf8(&frame[OFF_joineui]);
-        #if 0
+
         if( s2e_joineuiFilter[0] != 0 ) {
             uL_t* f = s2e_joineuiFilter-2;
             while( *(f += 2) ) {
@@ -248,8 +123,8 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
             return 0;
           out1:;
         }
-        #endif
-        str_t msgtype = (ftype == FRMTYPE_JREQ ? "[JoinReq]" : "[ReJoin]");
+
+        str_t msgtype = (ftype == FRMTYPE_JREQ ? "jreq" : "rejoin");
         u1_t  mhdr = frame[OFF_mhdr];
         uL_t  deveui = rt_rlsbf8(&frame[OFF_deveui]);
         u2_t  devnonce = rt_rlsbf2(&frame[OFF_devnonce]);
@@ -262,14 +137,16 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
                   "DevNonce",'i', devnonce,
                   "MIC",     'i', mic,
                   NULL);
-        LOG(MOD_S2E|INFO, "%s MHdr=%02X %s=%:E %s=%:E DevNonce=%d MIC=%d",
+        xprintf(lbuf, "%s MHdr=%02X %s=%:E %s=%:E DevNonce=%d MIC=%d",
                 msgtype, mhdr, rt_joineui, joineui, rt_deveui, deveui, devnonce, mic);
-                
-        lm.deveui=deveui;
-        if(basic_station_filter(&gBSFilter, &lm)){
-			LOG(MOD_S2E|INFO, "%s was filted by %s:[%:E]", msgtype, rt_deveui, deveui);
-			return 0;
+
+        if(pLoraMsg){
+            pLoraMsg->deveui=deveui;
+        	pLoraMsg->FrameType=ftype;
+        	strncpy(pLoraMsg->typeStr, msgtype, strlen(msgtype));
+        	pLoraMsg->typeStr[strlen(msgtype)]='\0';
         }
+        
         return 1;
     }
     u1_t foptslen = frame[OFF_fctrl] & 0xF;
@@ -277,26 +154,26 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
     if( portoff > len-4  )
         goto badframe;
     u4_t devaddr = rt_rlsbf4(&frame[OFF_devaddr]);
-    #if 0
+
     u1_t netid = devaddr >> (32-7);
     if( ((1 << (netid & 0x1F)) & s2e_netidFilter[netid>>5]) == 0 ) {
         
         xprintf(lbuf, "DevAddr=%X with NetID=%d filtered", devaddr, netid);
         return 0;
     }
-    #endif
     
     u1_t  mhdr  = frame[OFF_mhdr];
     u1_t  fctrl = frame[OFF_fctrl];
     u2_t  fcnt  = rt_rlsbf2(&frame[OFF_fcnt]);
     s4_t  mic   = (s4_t)rt_rlsbf4(&frame[len-4]);
-    str_t dir   = ftype==FRMTYPE_DAUP || ftype==FRMTYPE_DCUP ? "[UPDF]" : "[DNDF]";
-    
-    lm.fPort=frame[portoff];
-    lm.devAddr=(s4_t)devaddr;
-    if(basic_station_filter(&gBSFilter, &lm)){
-		LOG(MOD_S2E|INFO, "%s is Filted by filter FPort:[%d], DevAddr=%08X", dir, lm.fPort, lm.devAddr);
-		return 0;
+    str_t dir   = ftype==FRMTYPE_DAUP || ftype==FRMTYPE_DCUP ? "updf" : "dndf";
+
+	if(pLoraMsg){
+    	pLoraMsg->FrameType=ftype;
+    	pLoraMsg->fPort=frame[portoff];
+    	pLoraMsg->devAddr=(s4_t)devaddr;
+    	strncpy(pLoraMsg->typeStr, dir, strlen(dir));
+        pLoraMsg->typeStr[strlen(dir)]='\0';
     }
     uj_encKVn(buf,
               "msgtype",   's', dir,
@@ -309,7 +186,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
               "FRMPayload",'H', max(0, len-5-portoff), &frame[portoff+1],
               "MIC",       'i', mic,
               NULL);
-   	LOG(MOD_S2E|INFO, "%s mhdr=%02X DevAddr=%08X FCtrl=%02X FCnt=%d FOpts=[%H] %4.2H mic=%d (%d bytes)",
+   	xprintf(lbuf, "%s mhdr=%02X DevAddr=%08X FCtrl=%02X FCnt=%d FOpts=[%H] %4.2H mic=%d (%d bytes)",
             dir, mhdr, devaddr, fctrl, fcnt,
             foptslen, &frame[OFF_fopts],
             max(0, len-4-portoff), &frame[portoff], mic, len);

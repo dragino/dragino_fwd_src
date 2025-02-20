@@ -37,7 +37,16 @@
 
 extern uL_t* s2e_joineuiFilter;
 extern u4_t  s2e_netidFilter[4];
-int  s2e_parse_lora_frame(ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf);
+
+typedef struct LoraMessage{
+	uint8_t FrameType;
+	uint8_t fPort;
+	int32_t devAddr;
+	uint64_t deveui;
+	char typeStr[16];
+}LoraMessage_t;
+
+int  s2e_parse_lora_frame(ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf, LoraMessage_t *pLoraMsg);
 void s2e_make_beacon (uint8_t* layout, sL_t epoch_secs, int infodesc, double lat, double lon, uint8_t* buf);
 
 
