@@ -138,7 +138,7 @@ LIBS.kerlink = -llgw   ${MBEDLIBS} -lrt -lpthread
 
 ifdef SX1302MOD
 LGWLIB = ${TD}/../sx1302hal
-LIBS.dragino   = -L${LGWLIB} -lsx1302hal ${MBEDLIBS} -lpthread
+LIBS.dragino   = -L${LGWLIB} -lsx1302hal ${MBEDLIBS} -lsqlite3 -lpthread
 else
 LGWLIB = ${TD}/../sx1301hal
 LIBS.dragino   = -L${LGWLIB} -lsx1301hal ${MBEDLIBS} -lpthread -lmpsse -lusb-1.0 -lftdi1

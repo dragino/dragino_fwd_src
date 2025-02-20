@@ -37,13 +37,32 @@
 #define FATAL_NOLOGGING  32
 #define FATAL_MAX        40
 
+#define BASIC_STATION_CONF	"/etc/station/bs_conf.json"
+
 struct logfile {
     str_t path;
     int   size;
     int   rotate;
 };
 
+typedef enum {
+    NOFILTER,
+    INCLUDE,
+    EXCLUDE
+} filter_e;
+
+typedef struct stStationFilter{
+	char server_name[32];
+	struct{
+	    filter_e fport;             /*!> 0/1/2, 0不处理，1如果过滤匹配数据库的，2转发匹配数据库的 */
+	    filter_e devaddr;           /*!> 和fport相同 */
+	    filter_e nwkid;             /*!> 和fport相同 */
+	    filter_e deveui;            /*!> 和fport相同 */
+	}filter;
+}StationFilter_t;
+
 extern str_t  sys_slaveExec;  // template to start slave processes
+extern StationFilter_t gBSFilter;
 
 void     sys_startLogThread ();
 void     sys_iniLogging (struct logfile* lf, int captureStdio);

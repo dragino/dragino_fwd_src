@@ -32,7 +32,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-
+#include "lgwmm.h"
+#if 0
 #include "fwd.h"
 #include "logger.h"
 
@@ -41,7 +42,7 @@
 
 #define FREE_FAILURE_MSG \
       lgw_log(LOG_MEM, "Memory Point to NULL in function %s at line %d of %s\n", func, lineno, file)
-
+#endif
 void __lgw_free(void *ptr, const char *file, int lineno, const char *func)
 {
 
@@ -58,7 +59,7 @@ void *__lgw__realloc(void *ptr, size_t size, const char *file, int lineno, const
     void *p;
 	p = realloc(ptr, size);
 	if (!p) {
-		MALLOC_FAILURE_MSG;
+		//MALLOC_FAILURE_MSG;
 	}
     return p;
 }
@@ -69,7 +70,7 @@ void *__lgw_calloc(size_t nmemb, size_t size, const char *file, int lineno, cons
 
 	p = calloc(nmemb, size);
 	if (!p) {
-		MALLOC_FAILURE_MSG;
+		//MALLOC_FAILURE_MSG;
 	}
 
 	return p;
@@ -81,7 +82,7 @@ void *__lgw_malloc(size_t size, const char *file, int lineno, const char *func)
 
 	p = malloc(size);
 	if (!p) {
-		MALLOC_FAILURE_MSG;
+		//MALLOC_FAILURE_MSG;
 	}
 
     memset(p, 0, size);
@@ -95,7 +96,7 @@ void *__lgw_realloc(void *ptr, size_t size, const char *file, int lineno, const 
 
 	newp = realloc(ptr, size);
 	if (!newp) {
-		MALLOC_FAILURE_MSG;
+		//MALLOC_FAILURE_MSG;
 	}
 
 	return newp;
@@ -108,7 +109,7 @@ char *__lgw_strdup(const char *s, const char *file, int lineno, const char *func
 	if (s) {
 		newstr = strdup(s);
 		if (!newstr) {
-			MALLOC_FAILURE_MSG;
+			//MALLOC_FAILURE_MSG;
 		}
 	}
 
@@ -122,7 +123,7 @@ char *__lgw_strndup(const char *s, size_t n, const char *file, int lineno, const
 	if (s) {
 		newstr = strndup(s, n);
 		if (!newstr) {
-			MALLOC_FAILURE_MSG;
+			//MALLOC_FAILURE_MSG;
 		}
 	}
 
@@ -143,7 +144,7 @@ int __lgw_asprintf(const char *file, int lineno, const char *func, char **strp, 
 		 */
 		*strp = NULL;
 
-		MALLOC_FAILURE_MSG;
+		//MALLOC_FAILURE_MSG;
 	}
 	va_end(ap);
 
@@ -162,7 +163,7 @@ int __lgw_vasprintf(char **strp, const char *format, va_list ap, const char *fil
 		 */
 		*strp = NULL;
 
-		MALLOC_FAILURE_MSG;
+		//MALLOC_FAILURE_MSG;
 	}
 
 	return res;

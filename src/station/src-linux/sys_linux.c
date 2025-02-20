@@ -37,6 +37,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <pthread.h>
 
 #include "argp2.h"
 #include "s2conf.h"
@@ -49,7 +50,11 @@
 #include "sys.h"
 #include "sys_linux.h"
 #include "fs.h"
+#include "db.h"
+#include "parson.h"
 #include "selftests.h"
+#include "lgwmm.h"
+#include "linkedlists.h"
 
 #include "mbedtls/version.h"
 
@@ -103,6 +108,17 @@ static str_t  protoEuiSrc;
 static str_t  prefixEuiSrc;
 static str_t  radioInitSrc;
 
+StationFilter_t gBSFilter={"",{NOFILTER,NOFILTER,NOFILTER,NOFILTER}};
+
+
+struct lgw_atexit {
+    void (*func)(void);
+    int is_cleanup;
+    LGW_LIST_ENTRY(lgw_atexit) list;
+};
+
+static LGW_LIST_HEAD_STATIC(atexits, lgw_atexit);
+static int parse_basic_station_json(const char *conf_file);
 
 static void handle_signal (int signum) {
     // Calling exit() in a signal handler is unsafe
@@ -409,6 +425,19 @@ void sys_ini () {
     if( sys_noTC || sys_noCUPS ) {
         LOG(MOD_SYS|WARNING, "Station in NO-%s mode", sys_noTC ? "TC" : "CUPS");
     }
+
+    if (lgw_db_init()) {
+        LOG(MOD_SYS|ERROR, "Can't initiate sqlite3 database, EXIT!");
+        exit(EXIT_NOP);
+    }else{
+		LOG(MOD_SYS|INFO, "DB[%s] is inited.", LGW_DB_FILE);
+    }
+
+    if(parse_basic_station_json(BASIC_STATION_CONF)){
+		LOG(MOD_SYS|ERROR, "Parse station conf json failed, EXIT!");
+		exit(EXIT_NOP);
+    }
+    
     int seed;
     sys_seed((u1_t*)&seed, sizeof(seed));
     srand(seed);
@@ -1091,6 +1120,145 @@ static void startupDaemon (tmr_t* tmr) {
     }
 }
 
+static void lgw_run_atexits(int run_cleanups)
+{
+    struct lgw_atexit *ae;
+
+    LGW_LIST_LOCK(&atexits);
+    while ((ae = LGW_LIST_REMOVE_HEAD(&atexits, list))) {
+        if (ae->func && (!ae->is_cleanup || run_cleanups)) {
+            ae->func();
+        }
+        lgw_free(ae);
+    }
+    LGW_LIST_UNLOCK(&atexits);
+}
+
+static void __lgw_unregister_atexit(void (*func)(void))
+{
+    struct lgw_atexit *ae;
+
+    LGW_LIST_TRAVERSE_SAFE_BEGIN(&atexits, ae, list) {
+        if (ae->func == func) {
+            LGW_LIST_REMOVE_CURRENT(list);
+            lgw_free(ae);
+            break;
+        }
+    }
+    LGW_LIST_TRAVERSE_SAFE_END;
+}
+
+static int register_atexit(void (*func)(void), int is_cleanup)
+{
+    struct lgw_atexit *ae;
+
+    ae = lgw_calloc(1, sizeof(*ae));
+    if (!ae) {
+        return -1;
+    }
+    ae->func = func;
+    ae->is_cleanup = is_cleanup;
+    LGW_LIST_LOCK(&atexits);
+    __lgw_unregister_atexit(func);
+    LGW_LIST_INSERT_HEAD(&atexits, ae, list);
+    LGW_LIST_UNLOCK(&atexits);
+
+    return 0;
+}
+
+int lgw_register_atexit(void (*func)(void))
+{
+    return register_atexit(func, 0);
+}
+
+static int parse_basic_station_json(const char *conf_file)
+{
+	if(conf_file==NULL){
+		LOG(MOD_SYS|ERROR, "Invalid pointer.");
+		return -1;
+	}
+	if(access(conf_file, F_OK) != 0){
+		LOG(MOD_SYS|ERROR, "Conf file[%s] not existed.", conf_file);
+		return -1;
+	}
+
+	JSON_Value *ConfRoot = json_parse_file_with_comments(conf_file);
+	if(ConfRoot==NULL){
+		LOG(MOD_SYS|ERROR, "Station config is not valid json!");
+	}
+
+	JSON_Object *stationObj = json_object_get_object(json_value_get_object(ConfRoot), "station");
+	if(stationObj==NULL){
+		LOG(MOD_SYS|ERROR, "Can't get conf object!");
+		json_value_free(ConfRoot);
+		return -1;
+	}
+
+	int val=0;
+	JSON_Value *JsonV = json_object_get_value(stationObj, "server_name");
+	if(JsonV != NULL){
+		char *strV = (char *)json_value_get_string(JsonV);
+		if(strV){
+			memcpy(gBSFilter.server_name, strV, sizeof(gBSFilter.server_name));
+			LOG(MOD_SYS|INFO, "[SETTING] Found a server configure, name is configure to [%s]\n", gBSFilter.server_name);
+		}else{
+			memcpy(gBSFilter.server_name, "primary_server", sizeof(gBSFilter.server_name));
+			LOG(MOD_SYS|INFO, "[SETTING] Server not configure, configure randon name [primary_server]");
+		}
+	}
+	
+	JsonV = json_object_get_value(stationObj, "fport_filter");
+	if(JsonV != NULL){
+		val = json_value_get_number(JsonV);
+		if(val==1)
+			gBSFilter.filter.fport=INCLUDE;
+		else if(val==2)
+			gBSFilter.filter.fport=EXCLUDE;
+		else
+			gBSFilter.filter.fport=NOFILTER;
+		LOG(MOD_SYS|INFO, "[SETTING] packets received with a fport filter, level(%d)!", gBSFilter.filter.fport);
+	}
+	
+	JsonV = json_object_get_value(stationObj, "devaddr_filter");
+	if(JsonV != NULL){
+		val = json_value_get_number(JsonV);
+		if(val==1)
+			gBSFilter.filter.devaddr=INCLUDE;
+		else if(val==2)
+			gBSFilter.filter.devaddr=EXCLUDE;
+		else
+			gBSFilter.filter.devaddr=NOFILTER;
+		LOG(MOD_SYS|INFO, "[SETTING] packets received with a devaddr filter, level(%d)!", gBSFilter.filter.devaddr);
+	}
+
+	JsonV = json_object_get_value(stationObj, "nwkid_filter");
+	if(JsonV != NULL){
+		val = json_value_get_number(JsonV);
+		if(val==1)
+			gBSFilter.filter.nwkid=INCLUDE;
+		else if(val==2)
+			gBSFilter.filter.nwkid=EXCLUDE;
+		else
+			gBSFilter.filter.nwkid=NOFILTER;
+		LOG(MOD_SYS|INFO, "[SETTING] packets received with a nwkid filter, level(%d)!", gBSFilter.filter.nwkid);
+	}
+
+	JsonV = json_object_get_value(stationObj, "deveui_filter");
+	if(JsonV != NULL){
+		val = json_value_get_number(JsonV);
+		if(val==1)
+			gBSFilter.filter.deveui=INCLUDE;
+		else if(val==2)
+			gBSFilter.filter.deveui=EXCLUDE;
+		else
+			gBSFilter.filter.deveui=NOFILTER;
+		LOG(MOD_SYS|INFO, "[SETTING] packets received with a deveui filter, level(%d)!", gBSFilter.filter.deveui);
+	}
+    json_value_free(ConfRoot);
+
+	LOG(MOD_SYS|INFO, "[SETTING] Parse basic station conf_json:[%s] finished.", conf_file);
+    return 0;
+}
 
 int sys_main (int argc, char** argv) {
     // Because we log even before rt_ini()...
