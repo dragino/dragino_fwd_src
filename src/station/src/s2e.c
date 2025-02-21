@@ -32,7 +32,9 @@
 #include "ral.h"
 #include "s2e.h"
 #include "kwcrc.h"
+#include "db.h"
 #include "timesync.h"
+#include "sys_linux.h"
 
 
 u1_t s2e_dcDisabled;    // no duty cycle limits - override for test/dev
@@ -48,6 +50,120 @@ extern inline rps_t rps_make (int sf, int bw);
 static void s2e_txtimeout (tmr_t* tmr);
 static void s2e_bcntimeout (tmr_t* tmr);
 
+bool basic_station_filter(StationFilter_t *pBSFilter, LoraMessage_t *LoraMessage) {
+    char addr_key[64] = {0};
+    char fport_key[64] = {0};
+    char nwkid_key[64] = {0};
+    char deveui_key[64] = {0};
+    uint8_t nwkid = 0;
+
+    snprintf(addr_key, sizeof(addr_key), "%s/devaddr/%08X", pBSFilter->server_name, LoraMessage->devAddr);
+    snprintf(fport_key, sizeof(fport_key), "%s/fport/%u", pBSFilter->server_name, LoraMessage->fPort);
+#ifdef BIGENDIAN
+    nwkid = (LoraMessage->devAddr >> 25) & 0x7F;   /* Devaddr Format:  31..25(NwkID)  24..0(NwkAddr) */
+#else
+    nwkid = (LoraMessage->devAddr) & 0x7F;
+#endif
+    snprintf(nwkid_key, sizeof(nwkid_key), "%s/nwkid/%02X", pBSFilter->server_name, nwkid);
+
+    char deveui_str[17]={0};
+    if(LoraMessage->deveui>0){
+    	sprintf(deveui_str, "%16llX", LoraMessage->deveui);
+    	deveui_str[16]='\0';
+		snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/%s", pBSFilter->server_name, deveui_str);
+    }else{
+		snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/", pBSFilter->server_name);
+    }
+
+	LOG(MOD_S2E|INFO, "[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, deveui-lv=%d, addr_key=%s, fport_key=%s, nwkid_key=%s, deveui_key=%s\n", 
+						pBSFilter->server_name, pBSFilter->filter.fport, pBSFilter->filter.devaddr, 
+						pBSFilter->filter.nwkid, pBSFilter->filter.deveui, addr_key, fport_key, 
+						nwkid_key, deveui_key);
+    
+    switch(pBSFilter->filter.fport) {
+        case INCLUDE: // 1
+            if (lgw_db_key_exist(fport_key)){
+				LOG(MOD_S2E|INFO, "[%s-filter] fport filter include\n", pBSFilter->server_name);
+				return true;  // filter
+			}
+			LOG(MOD_S2E|INFO, "[%s-filter] fport filter not include\n", pBSFilter->server_name);
+            break;
+        case EXCLUDE: // 2
+            if (!lgw_db_key_exist(fport_key) && LoraMessage->fPort!=0){
+				LOG(MOD_S2E|INFO, "[%s-filter] fport filter exclude\n", pBSFilter->server_name);
+                return true;  //filter
+			}
+			LOG(MOD_S2E|INFO, "[%s-filter] fport filter not exclude\n", pBSFilter->server_name);
+            break;
+        default:
+            LOG(MOD_S2E|INFO, "[%s-filter] fport no filter\n", pBSFilter->server_name);
+            break;
+    }
+
+    switch(pBSFilter->filter.devaddr) {
+        case INCLUDE: //1
+            if (lgw_db_key_exist(addr_key)){
+				LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter include\n", pBSFilter->server_name);
+                return true; // filter
+			}
+			LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter not include\n", pBSFilter->server_name);
+            break;
+        case EXCLUDE:
+            if (!lgw_db_key_exist(addr_key) && LoraMessage->devAddr>0){
+				LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter exclude\n", pBSFilter->server_name);
+                return true; 
+			}
+			LOG(MOD_S2E|INFO, "[%s-filter] devaddr filter not exclude\n", pBSFilter->server_name);
+            break;
+        default:
+            LOG(MOD_S2E|INFO, "[%s-filter] devaddr no filter\n", pBSFilter->server_name);
+            break;
+    }
+
+    switch(pBSFilter->filter.nwkid) {
+        case INCLUDE: //1
+            if (lgw_db_key_exist(nwkid_key)){
+				LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter include \n", pBSFilter->server_name, nwkid);
+                return true; // filter
+			}
+			LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter not include \n", pBSFilter->server_name, nwkid);
+            break;
+        case EXCLUDE:
+            if (!lgw_db_key_exist(nwkid_key) && LoraMessage->devAddr>0){
+				LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter exclude \n", pBSFilter->server_name, nwkid);
+                return true; 
+            }
+			LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) filter not exclude \n", pBSFilter->server_name, nwkid);
+            break;
+        default:
+            LOG(MOD_S2E|INFO, "[%s-filter] nwkid(%02X) no filter\n", pBSFilter->server_name, nwkid);
+            break;
+    }
+
+	if(LoraMessage->deveui>0){
+		switch(pBSFilter->filter.deveui) {
+			case INCLUDE: //1
+				if (lgw_db_key_exist(deveui_key)){
+					LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter include \n", pBSFilter->server_name, deveui_str);
+					return true; // filter
+				}
+				LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter not include \n", pBSFilter->server_name, deveui_str);
+				break;
+			case EXCLUDE:
+				if (!lgw_db_key_exist(deveui_key)){
+					LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter exclude \n", pBSFilter->server_name, deveui_str);
+					return true; 
+				}
+				LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) filter not exclude \n", pBSFilter->server_name, deveui_str);
+				break;
+			default:
+				LOG(MOD_S2E|INFO, "[%s-filter] deveui(%s) no filter\n", pBSFilter->server_name, deveui_str);
+				break;
+		}
+	}
+	
+    return false;  // no-filter
+}
 
 static void setDC (s2ctx_t* s2ctx, ustime_t t) {
     for( u1_t u=0; u<MAX_TXUNITS; u++ ) {
@@ -159,8 +275,10 @@ void s2e_flushRxjobs (s2ctx_t* s2ctx) {
             xprintf(&lbuf, "RX %F DR%d %R snr=%.1f rssi=%d xtime=0x%lX - ",
                     j->freq, j->dr, s2e_dr2rps(s2ctx, j->dr), j->snr/4.0, -j->rssi, j->xtime);
 
+		LoraMessage_t lm;
+		memset(&lm, 0x00, sizeof(lm));
         uj_encOpen(&sendbuf, '{');
-        if( !s2e_parse_lora_frame(&sendbuf, &s2ctx->rxq.rxdata[j->off], j->len, lbuf.buf ? &lbuf : NULL) ) {
+        if( !s2e_parse_lora_frame(&sendbuf, &s2ctx->rxq.rxdata[j->off], j->len, lbuf.buf ? &lbuf : NULL, &lm) ) {
             // Frame failed sanity checks or stopped by filters
             sendbuf.pos = 0;
             continue;
@@ -190,6 +308,10 @@ void s2e_flushRxjobs (s2ctx_t* s2ctx) {
         if( !xeos(&sendbuf) ) {
             LOG(MOD_S2E|ERROR, "JSON encoding exceeds available buffer space: %d", sendbuf.bufsize);
         } else {
+	        if(basic_station_filter(&gBSFilter, &lm)){
+				LOG(MOD_S2E|INFO, "[%s] was filted by fport[%d], DevAddr[%08X], DevEui:[%:E]", lm.typeStr, lm.fPort, lm.devAddr, lm.deveui);
+				continue;
+	        }
             (*s2ctx->sendText)(s2ctx, &sendbuf);
             assert(sendbuf.buf==NULL);
             //if (!(j->rssi % 10))  

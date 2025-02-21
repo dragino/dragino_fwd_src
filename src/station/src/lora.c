@@ -25,9 +25,11 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#include <stdio.h>
 #include "s2conf.h"
 #include "uj.h"
+#include "rt.h"
+#include "s2e.h"
 
 
 #define MHDR_FTYPE  0xE0
@@ -83,7 +85,7 @@ uL_t* s2e_joineuiFilter;
 u4_t  s2e_netidFilter[4] = { 0xffFFffFF, 0xffFFffFF, 0xffFFffFF, 0xffFFffFF };
 
 
-int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf) {
+int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf, LoraMessage_t *pLoraMsg) {
     if( len == 0 ) {
     badframe:
         LOG(MOD_S2E|DEBUG, "Not a LoRaWAN frame: %16.4H", len, frame);
@@ -95,6 +97,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
         (frame[OFF_mhdr] & (MHDR_RFU|MHDR_MAJOR)) != MAJOR_V1 ) {
 	goto badframe;
     }
+    
     if( ftype == FRMTYPE_PROP || ftype == FRMTYPE_JACC ) {
         str_t msgtype = ftype == FRMTYPE_PROP ? "propdf" : "jacc";
         uj_encKVn(buf,
@@ -108,7 +111,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
         if( len != OFF_jreq_len)
             goto badframe;
         uL_t joineui = rt_rlsbf8(&frame[OFF_joineui]);
-        
+
         if( s2e_joineuiFilter[0] != 0 ) {
             uL_t* f = s2e_joineuiFilter-2;
             while( *(f += 2) ) {
@@ -120,6 +123,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
             return 0;
           out1:;
         }
+
         str_t msgtype = (ftype == FRMTYPE_JREQ ? "jreq" : "rejoin");
         u1_t  mhdr = frame[OFF_mhdr];
         uL_t  deveui = rt_rlsbf8(&frame[OFF_deveui]);
@@ -135,6 +139,14 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
                   NULL);
         xprintf(lbuf, "%s MHdr=%02X %s=%:E %s=%:E DevNonce=%d MIC=%d",
                 msgtype, mhdr, rt_joineui, joineui, rt_deveui, deveui, devnonce, mic);
+
+        if(pLoraMsg){
+            pLoraMsg->deveui=deveui;
+        	pLoraMsg->FrameType=ftype;
+        	strncpy(pLoraMsg->typeStr, msgtype, strlen(msgtype));
+        	pLoraMsg->typeStr[strlen(msgtype)]='\0';
+        }
+        
         return 1;
     }
     u1_t foptslen = frame[OFF_fctrl] & 0xF;
@@ -142,17 +154,27 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
     if( portoff > len-4  )
         goto badframe;
     u4_t devaddr = rt_rlsbf4(&frame[OFF_devaddr]);
+
     u1_t netid = devaddr >> (32-7);
     if( ((1 << (netid & 0x1F)) & s2e_netidFilter[netid>>5]) == 0 ) {
         
         xprintf(lbuf, "DevAddr=%X with NetID=%d filtered", devaddr, netid);
         return 0;
     }
+    
     u1_t  mhdr  = frame[OFF_mhdr];
     u1_t  fctrl = frame[OFF_fctrl];
     u2_t  fcnt  = rt_rlsbf2(&frame[OFF_fcnt]);
     s4_t  mic   = (s4_t)rt_rlsbf4(&frame[len-4]);
     str_t dir   = ftype==FRMTYPE_DAUP || ftype==FRMTYPE_DCUP ? "updf" : "dndf";
+
+	if(pLoraMsg){
+    	pLoraMsg->FrameType=ftype;
+    	pLoraMsg->fPort=frame[portoff];
+    	pLoraMsg->devAddr=(s4_t)devaddr;
+    	strncpy(pLoraMsg->typeStr, dir, strlen(dir));
+        pLoraMsg->typeStr[strlen(dir)]='\0';
+    }
     uj_encKVn(buf,
               "msgtype",   's', dir,
               "MHdr",      'i', mhdr,
@@ -164,7 +186,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
               "FRMPayload",'H', max(0, len-5-portoff), &frame[portoff+1],
               "MIC",       'i', mic,
               NULL);
-    xprintf(lbuf, "%s mhdr=%02X DevAddr=%08X FCtrl=%02X FCnt=%d FOpts=[%H] %4.2H mic=%d (%d bytes)",
+   	xprintf(lbuf, "%s mhdr=%02X DevAddr=%08X FCtrl=%02X FCnt=%d FOpts=[%H] %4.2H mic=%d (%d bytes)",
             dir, mhdr, devaddr, fctrl, fcnt,
             foptslen, &frame[OFF_fopts],
             max(0, len-4-portoff), &frame[portoff], mic, len);

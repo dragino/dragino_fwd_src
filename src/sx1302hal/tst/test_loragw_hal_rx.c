@@ -90,7 +90,7 @@ void usage(void) {
     printf(" --fdd         Enable Full-Duplex mode (CN490 reference design)\n");
 }
 
-int get_euid(char* com_path) {
+int get_euid(const char* com_path) {
     int x;
     uint64_t eui;
 
@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 {
     /* SPI interfaces */
     const char com_path_default[] = COM_PATH_DEFAULT;
-    const char * com_path = com_path_default;
+    char * com_path = com_path_default;
     lgw_com_type_t com_type = COM_TYPE_DEFAULT;
 
     struct sigaction sigact; /* SIGQUIT&SIGINT&SIGTERM signal handling */
@@ -284,7 +284,7 @@ int main(int argc, char **argv)
                 lorawan_p = false;
                 break;
             case 'v':
-                return get_euid(com_path);
+                return get_euid((const char *)com_path);
             case 0:
                 if (strcmp(long_options[option_index].name, "fdd") == 0) {
                     full_duplex = true;

@@ -263,7 +263,11 @@ static void thread_push_up(void* arg) {
         serv->report->stat_up.meas_up_payload_byte += p->size;
         pthread_mutex_unlock(&serv->report->mx_report);
         if (macmsg.BufSize != 0) {
-            lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received packages from mote: %08X (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.FHDR.DevAddr, macmsg.FHDR.FCnt);
+            if(macmsg.MHDR.Bits.MType == FRAME_TYPE_JOIN_REQ){
+				lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received Join_Req from DevEui: %s (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.DevEUI, macmsg.FHDR.FCnt);
+            }else{
+				lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received packages from mote: %08X (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.FHDR.DevAddr, macmsg.FHDR.FCnt);
+            }
         }
 
         /*!> Start of packet, add inter-packet separator if necessary */
