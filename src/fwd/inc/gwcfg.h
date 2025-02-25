@@ -53,13 +53,13 @@
 #endif
 
 typedef enum {
-	semtech,
-	ttn,
+    semtech,
+    ttn,
     mqtt,
     pkt,
     relay,
     delay,
-	gwtraf
+    gwtraf
 } serv_type;
 
 typedef enum {   /*!> Regional parameters */
@@ -149,7 +149,7 @@ LGW_LIST_HEAD(rxpkts_list, _rxpkts);     //定义一个数据链头，用来保�
  */
 typedef struct _server {
     struct {
-	    serv_type type;		        // type of server
+        serv_type type;		        // type of server
         uint8_t stamp;              // 用来标记service，当有服务印上这个标记时，代表和当前的service有关联
         bool enabled;
         char name[32];              // identify of server
@@ -219,11 +219,11 @@ struct lbt_chan_stat {
 
 typedef struct {
     struct {
-        char gateway_id[17];	/*!> string form of gateway mac address */
-        char platform[24];	    /*!> platform definition */
-        char email[40];			/*!> used for contact email */
-        char description[64];	/*!> used for free form description */
-        uint64_t  lgwm;			/*!> Lora gateway MAC address */
+        char gateway_id[17];    /*!> string form of gateway mac address */
+        char platform[24];      /*!> platform definition */
+        char email[40];         /*!> used for contact email */
+        char description[64];   /*!> used for free form description */
+        uint64_t  lgwm;         /*!> Lora gateway MAC address */
         uint32_t net_mac_h;
         uint32_t net_mac_l;
         uint8_t service_count;  /*!> count of service */
@@ -242,11 +242,11 @@ typedef struct {
     } hal;
 
     struct {
-        bool     radiostream_enabled;	
-        bool     ghoststream_enabled;	
-        bool     delay_enabled;	
+        bool     radiostream_enabled;
+        bool     ghoststream_enabled;
+        bool     delay_enabled;
         bool     td_enabled;              /*!> if enable time diff form UTC */	
-        bool     wd_enabled;		      /*!> if watchdog enabled   */
+        bool     wd_enabled;              /*!> if watchdog enabled   */
         bool     mac_decode;              /*!> if mac header decode for abp */
         bool     mac2file;                /*!> if payload text save to file */
         bool     mac2db;                  /*!> if payload text save to database */
@@ -278,8 +278,8 @@ typedef struct {
     struct {
         char   gps_tty_path[64];        /*!> path of the TTY port GPS is connected on */
         int    gps_tty_fd;
-        bool   gps_enabled;		        /*!> controls the use of the GPS                   */
-        bool   time_ref;		        /*!> controls the time refer from gps              */
+        bool   gps_enabled;             /*!> controls the use of the GPS                   */
+        bool   time_ref;                /*!> controls the time refer from gps              */
         bool   gps_ref_valid;           /*!> is GPS reference acceptable (ie. not too old) */
         bool   gps_fake_enable;
         struct tref time_reference_gps; /*!> time reference used for UTC <-> timestamp conversion */
@@ -288,8 +288,8 @@ typedef struct {
         struct coord_s meas_gps_coord;  /*!> GPS position of the gateway */
         struct coord_s meas_gps_err;    /*!> GPS position of the gateway */
         /*!> GPS time reference */
-        pthread_mutex_t mx_timeref;	    /*!> control access to GPS time reference */
-        pthread_mutex_t mx_meas_gps;	/*!> control access to the GPS statistics */
+        pthread_mutex_t mx_timeref;     /*!> control access to GPS time reference */
+        pthread_mutex_t mx_meas_gps;    /*!> control access to the GPS statistics */
     } gps;
 
     struct {
@@ -338,7 +338,7 @@ typedef struct {
     } log;
 
 #ifdef SX1302MOD
-	spectral_scan_t spectral_scan_params; //Spectral Scan
+    spectral_scan_t spectral_scan_params; //Spectral Scan
 #endif
 
     struct rxpkts_list rxpkts_list;

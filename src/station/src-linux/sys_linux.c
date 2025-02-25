@@ -332,19 +332,19 @@ str_t sys_radioDevice (str_t device, u1_t* comtype) {
         f = RADIODEV;
     // check for comtype prefix
     if( comtype )
-	*comtype = COMTYPE_SPI;
+    *comtype = COMTYPE_SPI;
     char *colon = index(f, ':');
     if( colon ) {
-	if( strncmp(f, "spi:", 4) == 0 ) {
-	    if( comtype )
-		*comtype = COMTYPE_SPI;
-	} else if( strncmp(f, "usb:", 4) == 0 ) {
-	    if( comtype )
-		*comtype = COMTYPE_USB;
-	} else {
-	    LOG(MOD_SYS|ERROR, "Unknown device comtype '%.*s' (using SPI)", colon-f, f);
-	}
-	f = colon + 1;
+    if( strncmp(f, "spi:", 4) == 0 ) {
+        if( comtype )
+        *comtype = COMTYPE_SPI;
+    } else if( strncmp(f, "usb:", 4) == 0 ) {
+        if( comtype )
+        *comtype = COMTYPE_USB;
+    } else {
+        LOG(MOD_SYS|ERROR, "Unknown device comtype '%.*s' (using SPI)", colon-f, f);
+    }
+    f = colon + 1;
     }
     // Caller must free result
     return sys_makeFilepath(f, 0);
@@ -1173,90 +1173,90 @@ int lgw_register_atexit(void (*func)(void))
 
 static int parse_basic_station_json(const char *conf_file)
 {
-	if(conf_file==NULL){
-		LOG(MOD_SYS|ERROR, "Invalid pointer.");
-		return -1;
-	}
-	if(access(conf_file, F_OK) != 0){
-		LOG(MOD_SYS|ERROR, "Conf file[%s] not existed.", conf_file);
-		return -1;
-	}
+    if(conf_file==NULL){
+        LOG(MOD_SYS|ERROR, "Invalid pointer.");
+        return -1;
+    }
+    if(access(conf_file, F_OK) != 0){
+        LOG(MOD_SYS|ERROR, "Conf file[%s] not existed.", conf_file);
+        return -1;
+    }
 
-	JSON_Value *ConfRoot = json_parse_file_with_comments(conf_file);
-	if(ConfRoot==NULL){
-		LOG(MOD_SYS|ERROR, "Station config is not valid json!");
-	}
+    JSON_Value *ConfRoot = json_parse_file_with_comments(conf_file);
+    if(ConfRoot==NULL){
+        LOG(MOD_SYS|ERROR, "Station config is not valid json!");
+    }
 
-	JSON_Object *stationObj = json_object_get_object(json_value_get_object(ConfRoot), "station");
-	if(stationObj==NULL){
-		LOG(MOD_SYS|ERROR, "Can't get conf object!");
-		json_value_free(ConfRoot);
-		return -1;
-	}
+    JSON_Object *stationObj = json_object_get_object(json_value_get_object(ConfRoot), "station");
+    if(stationObj==NULL){
+        LOG(MOD_SYS|ERROR, "Can't get conf object!");
+        json_value_free(ConfRoot);
+        return -1;
+    }
 
-	int val=0;
-	JSON_Value *JsonV = json_object_get_value(stationObj, "server_name");
-	if(JsonV != NULL){
-		char *strV = (char *)json_value_get_string(JsonV);
-		if(strV){
-			memcpy(gBSFilter.server_name, strV, sizeof(gBSFilter.server_name));
-			LOG(MOD_SYS|INFO, "[SETTING] Found a server configure, name is configure to [%s]\n", gBSFilter.server_name);
-		}else{
-			memcpy(gBSFilter.server_name, "primary_server", sizeof(gBSFilter.server_name));
-			LOG(MOD_SYS|INFO, "[SETTING] Server not configure, configure randon name [primary_server]");
-		}
-	}
-	
-	JsonV = json_object_get_value(stationObj, "fport_filter");
-	if(JsonV != NULL){
-		val = json_value_get_number(JsonV);
-		if(val==1)
-			gBSFilter.filter.fport=INCLUDE;
-		else if(val==2)
-			gBSFilter.filter.fport=EXCLUDE;
-		else
-			gBSFilter.filter.fport=NOFILTER;
-		LOG(MOD_SYS|INFO, "[SETTING] packets received with a fport filter, level(%d)!", gBSFilter.filter.fport);
-	}
-	
-	JsonV = json_object_get_value(stationObj, "devaddr_filter");
-	if(JsonV != NULL){
-		val = json_value_get_number(JsonV);
-		if(val==1)
-			gBSFilter.filter.devaddr=INCLUDE;
-		else if(val==2)
-			gBSFilter.filter.devaddr=EXCLUDE;
-		else
-			gBSFilter.filter.devaddr=NOFILTER;
-		LOG(MOD_SYS|INFO, "[SETTING] packets received with a devaddr filter, level(%d)!", gBSFilter.filter.devaddr);
-	}
+    int val=0;
+    JSON_Value *JsonV = json_object_get_value(stationObj, "server_name");
+    if(JsonV != NULL){
+        char *strV = (char *)json_value_get_string(JsonV);
+        if(strV){
+            memcpy(gBSFilter.server_name, strV, sizeof(gBSFilter.server_name));
+            LOG(MOD_SYS|INFO, "[SETTING] Found a server configure, name is configure to [%s]\n", gBSFilter.server_name);
+        }else{
+            memcpy(gBSFilter.server_name, "primary_server", sizeof(gBSFilter.server_name));
+            LOG(MOD_SYS|INFO, "[SETTING] Server not configure, configure randon name [primary_server]");
+        }
+    }
 
-	JsonV = json_object_get_value(stationObj, "nwkid_filter");
-	if(JsonV != NULL){
-		val = json_value_get_number(JsonV);
-		if(val==1)
-			gBSFilter.filter.nwkid=INCLUDE;
-		else if(val==2)
-			gBSFilter.filter.nwkid=EXCLUDE;
-		else
-			gBSFilter.filter.nwkid=NOFILTER;
-		LOG(MOD_SYS|INFO, "[SETTING] packets received with a nwkid filter, level(%d)!", gBSFilter.filter.nwkid);
-	}
+    JsonV = json_object_get_value(stationObj, "fport_filter");
+    if(JsonV != NULL){
+        val = json_value_get_number(JsonV);
+        if(val==1)
+            gBSFilter.filter.fport=INCLUDE;
+        else if(val==2)
+            gBSFilter.filter.fport=EXCLUDE;
+        else
+            gBSFilter.filter.fport=NOFILTER;
+        LOG(MOD_SYS|INFO, "[SETTING] packets received with a fport filter, level(%d)!", gBSFilter.filter.fport);
+    }
 
-	JsonV = json_object_get_value(stationObj, "deveui_filter");
-	if(JsonV != NULL){
-		val = json_value_get_number(JsonV);
-		if(val==1)
-			gBSFilter.filter.deveui=INCLUDE;
-		else if(val==2)
-			gBSFilter.filter.deveui=EXCLUDE;
-		else
-			gBSFilter.filter.deveui=NOFILTER;
-		LOG(MOD_SYS|INFO, "[SETTING] packets received with a deveui filter, level(%d)!", gBSFilter.filter.deveui);
-	}
+    JsonV = json_object_get_value(stationObj, "devaddr_filter");
+    if(JsonV != NULL){
+        val = json_value_get_number(JsonV);
+        if(val==1)
+            gBSFilter.filter.devaddr=INCLUDE;
+        else if(val==2)
+            gBSFilter.filter.devaddr=EXCLUDE;
+        else
+            gBSFilter.filter.devaddr=NOFILTER;
+        LOG(MOD_SYS|INFO, "[SETTING] packets received with a devaddr filter, level(%d)!", gBSFilter.filter.devaddr);
+    }
+
+    JsonV = json_object_get_value(stationObj, "nwkid_filter");
+    if(JsonV != NULL){
+        val = json_value_get_number(JsonV);
+        if(val==1)
+            gBSFilter.filter.nwkid=INCLUDE;
+        else if(val==2)
+            gBSFilter.filter.nwkid=EXCLUDE;
+        else
+            gBSFilter.filter.nwkid=NOFILTER;
+        LOG(MOD_SYS|INFO, "[SETTING] packets received with a nwkid filter, level(%d)!", gBSFilter.filter.nwkid);
+    }
+
+    JsonV = json_object_get_value(stationObj, "deveui_filter");
+    if(JsonV != NULL){
+        val = json_value_get_number(JsonV);
+        if(val==1)
+            gBSFilter.filter.deveui=INCLUDE;
+        else if(val==2)
+            gBSFilter.filter.deveui=EXCLUDE;
+        else
+            gBSFilter.filter.deveui=NOFILTER;
+        LOG(MOD_SYS|INFO, "[SETTING] packets received with a deveui filter, level(%d)!", gBSFilter.filter.deveui);
+    }
     json_value_free(ConfRoot);
 
-	LOG(MOD_SYS|INFO, "[SETTING] Parse basic station conf_json:[%s] finished.", conf_file);
+    LOG(MOD_SYS|INFO, "[SETTING] Parse basic station conf_json:[%s] finished.", conf_file);
     return 0;
 }
 

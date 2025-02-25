@@ -47,7 +47,7 @@ void __lgw_free(void *ptr, const char *file, int lineno, const char *func)
 {
 
     if (!ptr) {
-		//FREE_FAILURE_MSG;
+        //FREE_FAILURE_MSG;
         return;
     }
 
@@ -57,139 +57,139 @@ void __lgw_free(void *ptr, const char *file, int lineno, const char *func)
 void *__lgw__realloc(void *ptr, size_t size, const char *file, int lineno, const char *func)
 {
     void *p;
-	p = realloc(ptr, size);
-	if (!p) {
-		//MALLOC_FAILURE_MSG;
-	}
+    p = realloc(ptr, size);
+    if (!p) {
+        //MALLOC_FAILURE_MSG;
+    }
     return p;
 }
 
 void *__lgw_calloc(size_t nmemb, size_t size, const char *file, int lineno, const char *func)
 {
-	void *p;
+    void *p;
 
-	p = calloc(nmemb, size);
-	if (!p) {
-		//MALLOC_FAILURE_MSG;
-	}
+    p = calloc(nmemb, size);
+    if (!p) {
+        //MALLOC_FAILURE_MSG;
+    }
 
-	return p;
+    return p;
 }
 
 void *__lgw_malloc(size_t size, const char *file, int lineno, const char *func)
 {
-	void *p;
+    void *p;
 
-	p = malloc(size);
-	if (!p) {
-		//MALLOC_FAILURE_MSG;
-	}
+    p = malloc(size);
+    if (!p) {
+        //MALLOC_FAILURE_MSG;
+    }
 
     memset(p, 0, size);
 
-	return p;
+    return p;
 }
 
 void *__lgw_realloc(void *ptr, size_t size, const char *file, int lineno, const char *func)
 {
-	void *newp;
+    void *newp;
 
-	newp = realloc(ptr, size);
-	if (!newp) {
-		//MALLOC_FAILURE_MSG;
-	}
+    newp = realloc(ptr, size);
+    if (!newp) {
+        //MALLOC_FAILURE_MSG;
+    }
 
-	return newp;
+    return newp;
 }
 
 char *__lgw_strdup(const char *s, const char *file, int lineno, const char *func)
 {
-	char *newstr = NULL;
+    char *newstr = NULL;
 
-	if (s) {
-		newstr = strdup(s);
-		if (!newstr) {
-			//MALLOC_FAILURE_MSG;
-		}
-	}
+    if (s) {
+        newstr = strdup(s);
+        if (!newstr) {
+            //MALLOC_FAILURE_MSG;
+        }
+    }
 
-	return newstr;
+    return newstr;
 }
 
 char *__lgw_strndup(const char *s, size_t n, const char *file, int lineno, const char *func)
 {
-	char *newstr = NULL;
+    char *newstr = NULL;
 
-	if (s) {
-		newstr = strndup(s, n);
-		if (!newstr) {
-			//MALLOC_FAILURE_MSG;
-		}
-	}
+    if (s) {
+        newstr = strndup(s, n);
+        if (!newstr) {
+            //MALLOC_FAILURE_MSG;
+        }
+    }
 
-	return newstr;
+    return newstr;
 }
 
 int __lgw_asprintf(const char *file, int lineno, const char *func, char **strp, const char *format, ...)
 {
-	int res;
-	va_list ap;
+    int res;
+    va_list ap;
 
-	va_start(ap, format);
-	res = vasprintf(strp, format, ap);
-	if (res < 0) {
-		/*!>
-		 * *strp is undefined so set to NULL to ensure it is
-		 * initialized to something useful.
-		 */
-		*strp = NULL;
+    va_start(ap, format);
+    res = vasprintf(strp, format, ap);
+    if (res < 0) {
+        /*!>
+         * *strp is undefined so set to NULL to ensure it is
+         * initialized to something useful.
+         */
+        *strp = NULL;
 
-		//MALLOC_FAILURE_MSG;
-	}
-	va_end(ap);
+        //MALLOC_FAILURE_MSG;
+    }
+    va_end(ap);
 
-	return res;
+    return res;
 }
 
 int __lgw_vasprintf(char **strp, const char *format, va_list ap, const char *file, int lineno, const char *func)
 {
-	int res;
+    int res;
 
-	res = vasprintf(strp, format, ap);
-	if (res < 0) {
-		/*!>
-		 * *strp is undefined so set to NULL to ensure it is
-		 * initialized to something useful.
-		 */
-		*strp = NULL;
+    res = vasprintf(strp, format, ap);
+    if (res < 0) {
+        /*!>
+         * *strp is undefined so set to NULL to ensure it is
+         * initialized to something useful.
+         */
+        *strp = NULL;
 
-		//MALLOC_FAILURE_MSG;
-	}
+        //MALLOC_FAILURE_MSG;
+    }
 
-	return res;
+    return res;
 }
 
 void *lgw_std_malloc(size_t size)
 {
-	return malloc(size);
+    return malloc(size);
 }
 
 void *lgw_std_calloc(size_t nmemb, size_t size)
 {
-	return calloc(nmemb, size);
+    return calloc(nmemb, size);
 }
 
 void *lgw_std_realloc(void *ptr, size_t size)
 {
-	return realloc(ptr, size);
+    return realloc(ptr, size);
 }
 
 void lgw_std_free(void *ptr)
 {
-	lgw_free(ptr);
+    lgw_free(ptr);
 }
 
 void lgw_free_ptr(void *ptr)
 {
-	lgw_free(ptr);
+    lgw_free(ptr);
 }

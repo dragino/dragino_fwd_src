@@ -1688,13 +1688,13 @@ static int parse_gateway_configuration(const char* conf_file) {
     }
 
     /*!> servers configure */
-	serv_arry = json_object_get_array(conf_obj, "servers");
-	if ( NULL != serv_arry) {
-		/*!> serv_count represents the maximal number of servers to be read. */
+    serv_arry = json_object_get_array(conf_obj, "servers");
+    if ( NULL != serv_arry) {
+        /*!> serv_count represents the maximal number of servers to be read. */
         int count = 0, i = 0, try = 0;
-		count = json_array_get_count(serv_arry);  /*!> number of services should be less than 8 */
-		lgw_log(LOG_INFO, "[INFO~][SETTING] Found %i servers in array.\n", count);
-		for (i = 0; i < count; i++) {
+        count = json_array_get_count(serv_arry);  /*!> number of services should be less than 8 */
+        lgw_log(LOG_INFO, "[INFO~][SETTING] Found %i servers in array.\n", count);
+        for (i = 0; i < count; i++) {
             serv_entry = (serv_s*)lgw_malloc(sizeof(serv_s));
 
             serv_entry->list.next = NULL;
@@ -1744,9 +1744,9 @@ static int parse_gateway_configuration(const char* conf_file) {
 
             serv_entry->thread.stop_sig = false;
 
-			serv_obj = json_array_get_object(serv_arry, i);
+            serv_obj = json_array_get_object(serv_arry, i);
 
-			str = json_object_get_string(serv_obj, "server_name");  // MQTT id
+            str = json_object_get_string(serv_obj, "server_name");  // MQTT id
             if (str != NULL) {
                 strncpy(serv_entry->info.name, str, sizeof(serv_entry->info.name));
                 serv_entry->info.name[sizeof(serv_entry->info.name) - 1] = '\0'; 
@@ -1757,7 +1757,7 @@ static int parse_gateway_configuration(const char* conf_file) {
                 continue;
             }
 
-			str = json_object_get_string(serv_obj, "server_key");  // MQTT key
+            str = json_object_get_string(serv_obj, "server_key");  // MQTT key
             if (str != NULL) {
                 serv_entry->info.key = lgw_malloc(PATH_LEN);
                 strncpy(serv_entry->info.key, str, PATH_LEN);
@@ -1765,20 +1765,20 @@ static int parse_gateway_configuration(const char* conf_file) {
                 lgw_log(LOG_INFO, "[INFO~][SETTING][%s] server key is configure to \"%s\"\n", serv_entry->info.name, str);
             } 
 
-			str = json_object_get_string(serv_obj, "server_type");
+            str = json_object_get_string(serv_obj, "server_type");
             if (str != NULL) {
-				if (!strncmp(str, "semtech", 7)) {
-					serv_entry->info.type = semtech;
-				} else if (!strncmp(str, "ttn", 3)) {
-					serv_entry->info.type = ttn;
-				} else if (!strncmp(str, "pkt", 3)) {
-					serv_entry->info.type = pkt;
-				} else if (!strncmp(str, "relay", 5)) {
-					serv_entry->info.type = relay;
-				} else if (!strncmp(str, "delay", 5)) {
-					serv_entry->info.type = delay;
-				} else if (!strncmp(str, "mqtt", 4)) {
-					serv_entry->info.type = mqtt;
+                if (!strncmp(str, "semtech", 7)) {
+                    serv_entry->info.type = semtech;
+                } else if (!strncmp(str, "ttn", 3)) {
+                    serv_entry->info.type = ttn;
+                } else if (!strncmp(str, "pkt", 3)) {
+                    serv_entry->info.type = pkt;
+                } else if (!strncmp(str, "relay", 5)) {
+                    serv_entry->info.type = relay;
+                } else if (!strncmp(str, "delay", 5)) {
+                    serv_entry->info.type = delay;
+                } else if (!strncmp(str, "mqtt", 4)) {
+                    serv_entry->info.type = mqtt;
                     serv_entry->net->mqtt = (mqttinfo_s*)lgw_malloc(sizeof(mqttinfo_s));
                     strr = json_object_get_string(serv_obj, "uptopic");  // MQTT key
                     if (strr != NULL) {
@@ -1798,15 +1798,15 @@ static int parse_gateway_configuration(const char* conf_file) {
                         strcpy(serv_entry->net->mqtt->dntopic, "test");
                         lgw_log(LOG_WARNING, "%s[SETTING][%s] Need a dntopic for mqtt publish, set to default value \"test\"\n", WARNMSG, serv_entry->info.name);
                     }
-				} else if (!strncmp(str, "gwtraf", 6)) {
-					serv_entry->info.type = gwtraf;
-				} else 
-					serv_entry->info.type = semtech;
+                } else if (!strncmp(str, "gwtraf", 6)) {
+                    serv_entry->info.type = gwtraf;
+                } else 
+                    serv_entry->info.type = semtech;
             } else {
-					serv_entry->info.type = semtech;  // 默认的服务是semtech
+                serv_entry->info.type = semtech;  // 默认的服务是semtech
             }
 
-			val = json_object_get_value(serv_obj, "enabled");
+            val = json_object_get_value(serv_obj, "enabled");
             if ( val != NULL) {
                 if (json_value_get_type(val) == JSONBoolean) 
                     serv_entry->info.enabled = json_value_get_boolean(val);
@@ -1815,11 +1815,11 @@ static int parse_gateway_configuration(const char* conf_file) {
             } else 
                 serv_entry->info.enabled = true;   // 默认是开启的
 
-			if (serv_entry->info.type == semtech) {
+            if (serv_entry->info.type == semtech) {
 
                 serv_entry->report = (report_s*)lgw_malloc(sizeof(report_s));
                 serv_entry->report->report_ready = false;
-                strcpy(serv_entry->report->stat_format, "semtech");
+                memcpy(serv_entry->report->stat_format, "semtech", sizeof(serv_entry->report->stat_format));
                 serv_entry->report->stat_interval = DEFAULT_STAT_INTERVAL;
                 pthread_mutex_init(&serv_entry->report->mx_report, NULL);
 
@@ -1943,7 +1943,7 @@ static int parse_gateway_configuration(const char* conf_file) {
                 lgw_log(LOG_INFO, "[INFO~][SETTING][%s] packets received with a nwkid filter, level(%d)\n", serv_entry->info.name, serv_entry->filter.nwkid);
             }
 
-			val = json_object_get_value(serv_obj, "deveui_filter");
+            val = json_object_get_value(serv_obj, "deveui_filter");
             if (val != NULL) {
                 try = (uint8_t)json_value_get_number(val);
                 if (try == 1)

@@ -47,68 +47,68 @@
 DECLARE_GW;
 
 int init_sock(const char *addr, const char *port, const void *timeout, int size) {
-	int i;
+    int i;
     int sockfd;
-	/* network socket creation */
-	struct addrinfo hints;
-	struct addrinfo *result;	/* store result of getaddrinfo */
-	struct addrinfo *q;			/* pointer to move into *result data */
+    /* network socket creation */
+    struct addrinfo hints;
+    struct addrinfo *result;    /* store result of getaddrinfo */
+    struct addrinfo *q;         /* pointer to move into *result data */
 
-	char host_name[64];
-	char port_name[64];
+    char host_name[64];
+    char port_name[64];
 
-	/* prepare hints to open network sockets */
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_INET;	/* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
-	hints.ai_socktype = SOCK_DGRAM;
+    /* prepare hints to open network sockets */
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;	/* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
+    hints.ai_socktype = SOCK_DGRAM;
 
-	/* look for server address w/ upstream port */
-	i = getaddrinfo(addr, port, &hints, &result);
-	if (i != 0) {
-		//lgw_log(LOG_ERROR, "%s[NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", ERRMSG, addr, port, gai_strerror(i));
-		return -1;
-	}
+    /* look for server address w/ upstream port */
+    i = getaddrinfo(addr, port, &hints, &result);
+    if (i != 0) {
+        //lgw_log(LOG_ERROR, "%s[NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", ERRMSG, addr, port, gai_strerror(i));
+        return -1;
+    }
 
-	/* try to open socket for upstream traffic */
-	for (q = result; q != NULL; q = q->ai_next) {
-		sockfd = socket(q->ai_family, q->ai_socktype, q->ai_protocol);
-		if (sockfd == -1)
-			continue;			/* try next field */
-		else
-			break;			/* success, get out of loop */
-	}
+    /* try to open socket for upstream traffic */
+    for (q = result; q != NULL; q = q->ai_next) {
+        sockfd = socket(q->ai_family, q->ai_socktype, q->ai_protocol);
+        if (sockfd == -1)
+            continue;       /* try next field */
+        else
+            break;          /* success, get out of loop */
+    }
 
-	if (q == NULL) {
-		lgw_log(LOG_ERROR, "%s[NETWORK] failed to open socket to any of server %s addresses (port %s)\n", ERRMSG, addr, port);
-		i = 1;
-		for (q = result; q != NULL; q = q->ai_next) {
-			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
-			++i;
-		}
+    if (q == NULL) {
+        lgw_log(LOG_ERROR, "%s[NETWORK] failed to open socket to any of server %s addresses (port %s)\n", ERRMSG, addr, port);
+        i = 1;
+        for (q = result; q != NULL; q = q->ai_next) {
+            getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
+            ++i;
+        }
         Close(sockfd);
-	    freeaddrinfo(result);
+        freeaddrinfo(result);
 
-		return -1;
-	}
+        return -1;
+    }
 
-	/* connect so we can send/receive packet with the server only */
-	i = connect(sockfd, q->ai_addr, q->ai_addrlen);
-	if (i != 0) {
-		lgw_log(LOG_ERROR, "%s[NETWORK] connecting... %s\n", WARNMSG, strerror(errno));
+    /* connect so we can send/receive packet with the server only */
+    i = connect(sockfd, q->ai_addr, q->ai_addrlen);
+    if (i != 0) {
+        lgw_log(LOG_ERROR, "%s[NETWORK] connecting... %s\n", WARNMSG, strerror(errno));
         Close(sockfd);
-	    freeaddrinfo(result);
-		return -1;
-	}
+        freeaddrinfo(result);
+        return -1;
+    }
 
-	freeaddrinfo(result);
+    freeaddrinfo(result);
 
-	if ((setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size)) != 0) {
+    if ((setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size)) != 0) {
         Close(sockfd);
-		lgw_log(LOG_ERROR, "%s[NETWORK] setsockopt returned %s\n", ERRMSG, strerror(errno));
-		return -1;
-	}
+        lgw_log(LOG_ERROR, "%s[NETWORK] setsockopt returned %s\n", ERRMSG, strerror(errno));
+        return -1;
+    }
 
-	return sockfd;
+    return sockfd;
 }
 
 bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport, const char* deveui) {
@@ -128,88 +128,88 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport, co
     snprintf(nwkid_key, sizeof(nwkid_key), "%s/nwkid/%02X", serv->info.name, nwkid);
     snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/%s", serv->info.name, deveui);
 
-	lgw_log(LOG_INFO, "%s[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, deveui-lv=%d, addr_key=%s, fport_key=%s, nwkid_key=%s, deveui_key=%s\n", INFOMSG, 
-						serv->info.name, serv->filter.fport, serv->filter.devaddr, serv->filter.nwkid, serv->filter.deveui, 
-						addr_key, fport_key, nwkid_key, deveui_key);
+    lgw_log(LOG_INFO, "%s[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, deveui-lv=%d, addr_key=%s, fport_key=%s, nwkid_key=%s, deveui_key=%s\n", INFOMSG, 
+                        serv->info.name, serv->filter.fport, serv->filter.devaddr, serv->filter.nwkid, serv->filter.deveui, 
+                        addr_key, fport_key, nwkid_key, deveui_key);
     
-    switch(serv->filter.fport) {
-        case INCLUDE: // 1
-            if (lgw_db_key_exist(fport_key)){
-				lgw_log(LOG_INFO, "%s[%s-filter] fport filter include\n", INFOMSG, serv->info.name);
-				return true;  // filter
-			}
-			lgw_log(LOG_INFO, "%s[%s-filter] fport filter not include\n", INFOMSG, serv->info.name);
-            break;
-        case EXCLUDE: // 2
-            if (!lgw_db_key_exist(fport_key) && fport>0){
-				lgw_log(LOG_INFO, "%s[%s-filter] fport filter exclude\n", INFOMSG, serv->info.name);
-                return true;  //filter
-			}
-			lgw_log(LOG_INFO, "%s[%s-filter] fport filter not exclude\n", INFOMSG, serv->info.name);
-            break;
-        default:
-            lgw_log(LOG_INFO, "%s[%s-filter] fport no filter\n", INFOMSG, serv->info.name);
-            break;
+    switch (serv->filter.fport) {
+    case INCLUDE: // 1
+        if (lgw_db_key_exist(fport_key)){
+            lgw_log(LOG_INFO, "%s[%s-filter] fport filter include\n", INFOMSG, serv->info.name);
+            return true;  // filter
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] fport filter not include\n", INFOMSG, serv->info.name);
+        break;
+    case EXCLUDE: // 2
+        if (!lgw_db_key_exist(fport_key) && fport>0){
+            lgw_log(LOG_INFO, "%s[%s-filter] fport filter exclude\n", INFOMSG, serv->info.name);
+            return true;  //filter
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] fport filter not exclude\n", INFOMSG, serv->info.name);
+        break;
+    default:
+        lgw_log(LOG_INFO, "%s[%s-filter] fport no filter\n", INFOMSG, serv->info.name);
+        break;
     }
 
     switch(serv->filter.devaddr) {
-        case INCLUDE: //1
-            if (lgw_db_key_exist(addr_key)){
-				lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter include\n", INFOMSG, serv->info.name);
-                return true; // filter
-			}
-			lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter not include\n", INFOMSG, serv->info.name);
-            break;
-        case EXCLUDE:
-            if (!lgw_db_key_exist(addr_key) && addr>0){
-				lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter exclude\n", INFOMSG, serv->info.name);
-                return true; 
-			}
-			lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter not exclude\n", INFOMSG, serv->info.name);
-            break;
-        default:
-            lgw_log(LOG_INFO, "%s[%s-filter] devaddr no filter\n", INFOMSG, serv->info.name);
-            break;
+    case INCLUDE: //1
+        if (lgw_db_key_exist(addr_key)){
+            lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter include\n", INFOMSG, serv->info.name);
+            return true; // filter
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter not include\n", INFOMSG, serv->info.name);
+        break;
+    case EXCLUDE:
+        if (!lgw_db_key_exist(addr_key) && addr>0){
+            lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter exclude\n", INFOMSG, serv->info.name);
+            return true; 
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] devaddr filter not exclude\n", INFOMSG, serv->info.name);
+        break;
+    default:
+        lgw_log(LOG_INFO, "%s[%s-filter] devaddr no filter\n", INFOMSG, serv->info.name);
+        break;
     }
 
     switch(serv->filter.nwkid) {
-        case INCLUDE: //1
-            if (lgw_db_key_exist(nwkid_key)){
-				lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter include \n", INFOMSG, serv->info.name, nwkid);
-                return true; // filter
-			}
-			lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter not include \n", INFOMSG, serv->info.name, nwkid);
-            break;
-        case EXCLUDE:
-            if (!lgw_db_key_exist(nwkid_key) && addr>0){
-				lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter exclude \n", INFOMSG, serv->info.name, nwkid);
-                return true; 
-            }
-			lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter not exclude \n", INFOMSG, serv->info.name, nwkid);
-            break;
-        default:
-            lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) no filter\n", INFOMSG, serv->info.name, nwkid);
-            break;
+    case INCLUDE: //1
+        if (lgw_db_key_exist(nwkid_key)){
+            lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter include \n", INFOMSG, serv->info.name, nwkid);
+            return true; // filter
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter not include \n", INFOMSG, serv->info.name, nwkid);
+        break;
+    case EXCLUDE:
+        if (!lgw_db_key_exist(nwkid_key) && addr>0){
+            lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter exclude \n", INFOMSG, serv->info.name, nwkid);
+            return true; 
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) filter not exclude \n", INFOMSG, serv->info.name, nwkid);
+        break;
+    default:
+        lgw_log(LOG_INFO, "%s[%s-filter] nwkid(%02X) no filter\n", INFOMSG, serv->info.name, nwkid);
+        break;
     }
 
-	switch(serv->filter.deveui) {
-        case INCLUDE: //1
-            if (lgw_db_key_exist(deveui_key)){
-				lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter include \n", INFOMSG, serv->info.name, deveui);
-                return true; // filter
-            }
-			lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter not include \n", INFOMSG, serv->info.name, deveui);
-            break;
-        case EXCLUDE:
-            if (!lgw_db_key_exist(deveui_key)){
-				lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter exclude \n", INFOMSG, serv->info.name, deveui);
-                return true; 
-            }
-            lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter not exclude \n", INFOMSG, serv->info.name, deveui);
-            break;
-        default:
-            lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) no filter\n", INFOMSG, serv->info.name, deveui);
-            break;
+    switch(serv->filter.deveui) {
+    case INCLUDE: //1
+        if (lgw_db_key_exist(deveui_key)){
+            lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter include \n", INFOMSG, serv->info.name, deveui);
+            return true; // filter
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter not include \n", INFOMSG, serv->info.name, deveui);
+        break;
+    case EXCLUDE:
+        if (!lgw_db_key_exist(deveui_key)){
+            lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter exclude \n", INFOMSG, serv->info.name, deveui);
+            return true; 
+        }
+        lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) filter not exclude \n", INFOMSG, serv->info.name, deveui);
+        break;
+    default:
+        lgw_log(LOG_INFO, "%s[%s-filter] deveui(%s) no filter\n", INFOMSG, serv->info.name, deveui);
+        break;
     }
     //lgw_log(LOG_DEBUG, "%s[%s-filter] default: no filter\n", DEBUGMSG, serv->info.name);
     return false;  // no-filter
@@ -235,23 +235,23 @@ void service_start() {
     serv_s* serv_entry;
     LGW_LIST_TRAVERSE(&GW.serv_list, serv_entry, list) { 
         switch (serv_entry->info.type) {
-            case semtech:
-                semtech_start(serv_entry);
-                break;
-            case pkt:
-                pkt_start(serv_entry);
-                break;
-            case relay:
-                relay_start(serv_entry);
-                break;
-            case delay:
-                delay_start(serv_entry);
-                break;
-            case mqtt:
-                mqtt_start(serv_entry);
-                break;
-            default:
-                break;
+        case semtech:
+            semtech_start(serv_entry);
+            break;
+        case pkt:
+            pkt_start(serv_entry);
+            break;
+        case relay:
+            relay_start(serv_entry);
+            break;
+        case delay:
+            delay_start(serv_entry);
+            break;
+        case mqtt:
+            mqtt_start(serv_entry);
+            break;
+        default:
+            break;
         }
     }
 }
@@ -260,24 +260,24 @@ void service_stop() {
     serv_s* serv_entry;
     LGW_LIST_TRAVERSE(&GW.serv_list, serv_entry, list) { 
         switch (serv_entry->info.type) {
-            case semtech:
-                semtech_stop(serv_entry);
-                break;
-            case pkt:
-                pkt_stop(serv_entry);
-                break;
-            case relay:
-                relay_stop(serv_entry);
-                break;
-            case delay:
-                delay_stop(serv_entry);
-                break;
-            case mqtt:
-                mqtt_stop(serv_entry);
-                break;
-            default:
-                semtech_stop(serv_entry);
-                break;
+        case semtech:
+            semtech_stop(serv_entry);
+            break;
+        case pkt:
+            pkt_stop(serv_entry);
+            break;
+        case relay:
+            relay_stop(serv_entry);
+            break;
+        case delay:
+            delay_stop(serv_entry);
+            break;
+        case mqtt:
+            mqtt_stop(serv_entry);
+            break;
+        default:
+            semtech_stop(serv_entry);
+            break;
         }
     }
 }

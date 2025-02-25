@@ -95,7 +95,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
     if( (len < OFF_df_minlen && ftype != FRMTYPE_PROP) ||
         // (FTYPE_BIT(ftype) & DNFRAME_TYPE) != 0 || --- because of device_mode feature we parse everything
         (frame[OFF_mhdr] & (MHDR_RFU|MHDR_MAJOR)) != MAJOR_V1 ) {
-	goto badframe;
+        goto badframe;
     }
     
     if( ftype == FRMTYPE_PROP || ftype == FRMTYPE_JACC ) {
@@ -142,9 +142,9 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
 
         if(pLoraMsg){
             pLoraMsg->deveui=deveui;
-        	pLoraMsg->FrameType=ftype;
-        	strncpy(pLoraMsg->typeStr, msgtype, strlen(msgtype));
-        	pLoraMsg->typeStr[strlen(msgtype)]='\0';
+            pLoraMsg->FrameType=ftype;
+            strncpy(pLoraMsg->typeStr, msgtype, strlen(msgtype));
+            pLoraMsg->typeStr[strlen(msgtype)]='\0';
         }
         
         return 1;
@@ -168,11 +168,11 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
     s4_t  mic   = (s4_t)rt_rlsbf4(&frame[len-4]);
     str_t dir   = ftype==FRMTYPE_DAUP || ftype==FRMTYPE_DCUP ? "updf" : "dndf";
 
-	if(pLoraMsg){
-    	pLoraMsg->FrameType=ftype;
-    	pLoraMsg->fPort=frame[portoff];
-    	pLoraMsg->devAddr=(s4_t)devaddr;
-    	strncpy(pLoraMsg->typeStr, dir, strlen(dir));
+    if(pLoraMsg){
+        pLoraMsg->FrameType=ftype;
+        pLoraMsg->fPort=frame[portoff];
+        pLoraMsg->devAddr=(s4_t)devaddr;
+        strncpy(pLoraMsg->typeStr, dir, strlen(dir));
         pLoraMsg->typeStr[strlen(dir)]='\0';
     }
     uj_encKVn(buf,
@@ -186,7 +186,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
               "FRMPayload",'H', max(0, len-5-portoff), &frame[portoff+1],
               "MIC",       'i', mic,
               NULL);
-   	xprintf(lbuf, "%s mhdr=%02X DevAddr=%08X FCtrl=%02X FCnt=%d FOpts=[%H] %4.2H mic=%d (%d bytes)",
+    xprintf(lbuf, "%s mhdr=%02X DevAddr=%08X FCtrl=%02X FCnt=%d FOpts=[%H] %4.2H mic=%d (%d bytes)",
             dir, mhdr, devaddr, fctrl, fcnt,
             foptslen, &frame[OFF_fopts],
             max(0, len-4-portoff), &frame[portoff], mic, len);

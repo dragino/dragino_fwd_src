@@ -98,7 +98,7 @@ int semtech_stop(serv_s* serv) {
     GW.info.service_count++;
     LGW_LIST_UNLOCK(&GW.rxpkts_list);
     serv->thread.stop_sig = true;
-	sem_post(&serv->thread.sema);
+    sem_post(&serv->thread.sema);
     pthread_join(serv->thread.t_up, NULL);
     pthread_cancel(serv->thread.t_down);
     Close(serv->net->sock_up);
@@ -249,7 +249,7 @@ static void thread_push_up(void* arg) {
 
         if (macmsg.BufSize != 0) {
             if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || 
-				serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER) {
+                serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER) {
                 if (pkt_basic_filter(serv, macmsg.FHDR.DevAddr, macmsg.FPort, macmsg.DevEUI)) {
                     lgw_log(LOG_INFO, "%s[PKTS][%s-UP] Filter packet has fport(%u) of %08X.\n", INFOMSG, serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
                     pthread_mutex_unlock(&serv->report->mx_report);
@@ -264,9 +264,9 @@ static void thread_push_up(void* arg) {
         pthread_mutex_unlock(&serv->report->mx_report);
         if (macmsg.BufSize != 0) {
             if(macmsg.MHDR.Bits.MType == FRAME_TYPE_JOIN_REQ){
-				lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received Join_Req from DevEui: %s (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.DevEUI, macmsg.FHDR.FCnt);
+                lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received Join_Req from DevEui: %s (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.DevEUI, macmsg.FHDR.FCnt);
             }else{
-				lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received packages from mote: %08X (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.FHDR.DevAddr, macmsg.FHDR.FCnt);
+                lgw_log(LOG_INFO, "%s[PKTS][%s-UP] received packages from mote: %08X (fcnt=%u)\n", INFOMSG, serv->info.name, macmsg.FHDR.DevAddr, macmsg.FHDR.FCnt);
             }
         }
 
@@ -1530,7 +1530,7 @@ static void semtech_push_up(void* arg) {
 
     lgw_log(LOG_INFO, "%s[THREAD][%s] Semtech UP service Starting...\n", INFOMSG, serv->info.name);
 
-	while (!serv->thread.stop_sig) {
+    while (!serv->thread.stop_sig) {
         sem_wait(&serv->thread.sema);
         do {
             serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
@@ -1560,6 +1560,6 @@ static void semtech_push_up(void* arg) {
 
     }
 
-	lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
+    lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
 }
 
