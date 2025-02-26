@@ -12,6 +12,7 @@ LoRaMacParserStatus_t LoRaMacParserData( LoRaMacMessageData_t* macMsg )
     }
 
     uint16_t bufItr = 0;
+    uint8_t cat[3]={'\0'};
 
     macMsg->FPort = 0;
     macMsg->FRMPayloadSize = 0;
@@ -20,10 +21,10 @@ LoRaMacParserStatus_t LoRaMacParserData( LoRaMacMessageData_t* macMsg )
 
     switch (macMsg->MHDR.Bits.MType) {
         case FRAME_TYPE_JOIN_ACCEPT: 
-			return LORAMAC_PARSER_SUCCESS;
+            return LORAMAC_PARSER_SUCCESS;
+            break;
         case FRAME_TYPE_JOIN_REQ: 
-			uint8_t cat[3]={'\0'};
-			for (bufItr = 8; bufItr > 0; bufItr--) {  //APPEUI
+            for (bufItr = 8; bufItr > 0; bufItr--) {  //APPEUI
                 sprintf(cat, "%02X", macMsg->Buffer[bufItr]);
                 strcat(macMsg->AppEUI, cat);
             }
@@ -32,6 +33,7 @@ LoRaMacParserStatus_t LoRaMacParserData( LoRaMacMessageData_t* macMsg )
                 strcat(macMsg->DevEUI, cat);
             }
             return LORAMAC_PARSER_SUCCESS;
+            break;
         default:
             break;
     }
@@ -138,7 +140,7 @@ void decode_mac_pkt_up(LoRaMacMessageData_t* macMsg, void* pkt)
     char content[256] = {'\0'};
     char payloadhex[512] = {'\0'};
 
-	struct lgw_pkt_rx_s* p = (struct lgw_pkt_rx_s*)pkt;
+    struct lgw_pkt_rx_s* p = (struct lgw_pkt_rx_s*)pkt;
 
     char dr[20] = {'\0'};
 
@@ -222,7 +224,7 @@ void decode_mac_pkt_up(LoRaMacMessageData_t* macMsg, void* pkt)
             sprintf(pdtype, "DATA_UNCONF_UP");
             break;
         case FRAME_TYPE_JOIN_REQ: 
-			#if 0
+            #if 0
             for (idx = 8; idx > 0; idx--) {  //APPEUI
                 sprintf(cat, "%02X", macMsg->Buffer[idx]);
                 strcat(macMsg->AppEUI, cat);
@@ -231,7 +233,7 @@ void decode_mac_pkt_up(LoRaMacMessageData_t* macMsg, void* pkt)
                 sprintf(cat, "%02X", macMsg->Buffer[idx]);
                 strcat(macMsg->DevEUI, cat);
             }
-			#endif
+            #endif
             snprintf(content, sizeof(content), "[JOIN_REQ]:{\"Size\":%d, \"Rssi\":%.0f, \"snr\":%.0f, \"AppEUI\":\"%s\", \"DevEUI\":\"%s\"}", p->size, p->rssic, p->snr, macMsg->AppEUI, macMsg->DevEUI);
             for (idx = 0; idx < p->size; idx++) {
                 sprintf(cat, "%02X", p->payload[idx]);
@@ -261,7 +263,7 @@ void decode_mac_pkt_down(LoRaMacMessageData_t* macMsg, void* pkt)
     char content[256] = {'\0'};
     char payloadhex[512] = {'\0'};
 
-	struct lgw_pkt_tx_s* p = (struct lgw_pkt_tx_s*)pkt;
+    struct lgw_pkt_tx_s* p = (struct lgw_pkt_tx_s*)pkt;
 
     LoRaMacMessageJoinAccept_t joinMsg;
     

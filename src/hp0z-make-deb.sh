@@ -115,7 +115,7 @@ case "$board" in
     "rasp301")
         cp -f rasp-postinst DEBIAN/postinst
         cp -rf config/cfg-301 pi_pkg/etc/lora/
-        install -m 644 cfg-301/EU-global_conf.json pi_pkg/etc/lora/global_conf.json
+        install -m 644 config/cfg-301/EU-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 libmpsse/libmpsse.so pi_pkg/usr/lib/libmpsse.so
         install -m 755 sx1301hal/libsx1301hal.so pi_pkg/usr/lib/libsx1301hal.so
         install -m 755 build_fwd_sx1301/fwd_sx1301 pi_pkg/usr/bin
