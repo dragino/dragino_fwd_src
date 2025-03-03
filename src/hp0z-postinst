@@ -5,10 +5,14 @@ uci set gateway.general.fwd_version="$VER"
 Enable="$(uci -q get gateway.server2.enable)"
 
 if [ "$Enable" = "1" ]; then
-        echo "enable=1"
+	echo "enable=1"
+elif [ "$Enable" = "0" ]; then
+	echo "enable=0"
 else
-        uci add_list gateway.server2.enable=0
+	echo "create enable 0"
+	uci add_list gateway.server2.enable=0
 fi
+
 uci commit gateway
 /usr/local/dragino/generate-config.sh start > /dev/null 2>&1
 systemctl enable draginofwd
