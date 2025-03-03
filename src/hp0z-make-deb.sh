@@ -8,6 +8,9 @@
 #
 
 VER=$(date -u '+%Y-%m-%d')
+VerSubfix=$(date -u '+%Y%m%d' | cut -b3-8)
+FWDTarget=fwd-$VerSubfix
+STATIONTarget=station-$VerSubfix
 
 [[ -z $1 ]] && exit 1
 
@@ -94,7 +97,8 @@ case "$board" in
         install -m 755 build_station_sx1302/build-arm-dragino/bin/station_sx1302 pi_pkg/usr/bin
         install -m 644 config/hp0c-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 tools/reset_lgw-hp0c.sh pi_pkg/usr/bin/reset_lgw.sh
-        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/fwd
+        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/$FWDTarget
+	ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
         ;;
     "hp0d")
         cp -f hp0z-postinst DEBIAN/postinst
@@ -110,7 +114,8 @@ case "$board" in
         install -m 755 build_station_sx1302/build-arm-dragino/bin/station_sx1302 pi_pkg/usr/bin
         cp -f config/hp0d-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 tools/reset_lgw-hp0d.sh pi_pkg/usr/bin/reset_lgw.sh
-        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/fwd
+        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/$FWDTarget
+	ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
         ;;
     "rasp301")
         cp -f rasp-postinst DEBIAN/postinst
@@ -121,7 +126,8 @@ case "$board" in
         install -m 755 build_fwd_sx1301/fwd_sx1301 pi_pkg/usr/bin
         install -m 755 build_station_sx1301/build-arm-dragino/bin/station_sx1301 pi_pkg/usr/bin
         install -m 755 tools/reset_lgw-hp0d.sh pi_pkg/usr/bin/reset_lgw.sh
-        ln -sf /usr/bin/fwd_sx1301 pi_pkg/usr/bin/fwd
+        ln -sf /usr/bin/fwd_sx1301 pi_pkg/usr/bin/$FWDTarget
+	ln -sf /usr/bin/station_sx1301 pi_pkg/usr/bin/$STATIONTarget
         ;;
     "rasp302")
         cp -f rasp-postinst DEBIAN/postinst
@@ -136,7 +142,8 @@ case "$board" in
         install -m 755 build_station_sx1302/build-arm-dragino/bin/station_sx1302 pi_pkg/usr/bin
         cp -f config/hp0d-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 tools/reset_lgw-hp0d.sh pi_pkg/usr/bin/reset_lgw.sh
-        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/fwd
+        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/$FWDTarget
+	ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
         ;;
     *)
         cp -f rasp-postinst DEBIAN/postinst
@@ -151,7 +158,8 @@ case "$board" in
         install -m 755 build_station_sx1302/build-arm-dragino/bin/station_sx1302 pi_pkg/usr/bin
         cp -f config/hp0d-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 tools/reset_lgw-hp0d.sh pi_pkg/usr/bin/reset_lgw.sh
-        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/fwd
+        ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/$FWDTarget
+        ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
         ;;
 esac
 
@@ -163,8 +171,10 @@ cp -f station/config/station-sx1302.conf pi_pkg/etc/station/station.conf
 cp -f config/local_conf.json pi_pkg/etc/lora
 
 cp -rf DEBIAN pi_pkg/
-cp -rf draginofwd.service pi_pkg/lib/systemd/system
-cp -rf draginostation.service pi_pkg/lib/systemd/system
+#cp -rf draginofwd.service pi_pkg/lib/systemd/system
+#cp -rf draginostation.service pi_pkg/lib/systemd/system
+sed 's/bin\/fwd/bin\/'$FWDTarget'/g' draginofwd.service > pi_pkg/lib/systemd/system/draginofwd.service
+sed 's/ExecStart\=station/ExecStart\='$STATIONTarget'/g; s/ExecStopPost\=station/ExecStopPost\='$STATIONTarget'/g' draginostation.service > pi_pkg/lib/systemd/system/draginostation.service
 
 dpkg-deb -Zgzip -b pi_pkg draginofwd-${board}_${VER}.deb
 

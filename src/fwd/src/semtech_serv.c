@@ -628,7 +628,7 @@ static void thread_push_up(void* arg) {
 
     pthread_mutex_lock(&mx_pthread_count);
     if (send(serv->net->sock_up, (void *)buff_up, buff_index, 0) == -1) {
-        lgw_log(LOG_DEBUG, "%s[DEBUG][%s-UP] sending: %s\n", ERRMSG, serv->info.name, strerror(errno)); 
+        lgw_log(LOG_PKT, "%s[PKTS][%s-UP] sending: %s\n", ERRMSG, serv->info.name, strerror(errno)); 
         lgw_free(serv_ct);
         pthread_count--;
         pthread_mutex_unlock(&mx_pthread_count);

@@ -87,6 +87,7 @@ u1_t  sys_modePPS;      // special mode?
 u2_t  sys_webPort;
 u1_t  sys_noTC;
 u1_t  sys_noCUPS;
+char gProcName[32] = {0};
 
 extern str_t  homeDir;
 extern str_t  tempDir;
@@ -1171,24 +1172,63 @@ int lgw_register_atexit(void (*func)(void))
     return register_atexit(func, 0);
 }
 
+static int get_process_name(char *proc_name)
+{
+    if( proc_name == NULL ) {
+        printf("Invalid pointer!");
+        return -1;
+    }
+
+    pid_t pid = getpid( );
+    char proc_path[64]={0};
+    snprintf(proc_path, sizeof(proc_path), "/proc/%d/comm", (int)pid);
+    
+    if( access(proc_path, F_OK) != 0) {
+        rt_fatal("Process %s not found!\n", proc_path);
+        return -1;
+    }
+
+    FILE *fp = fopen(proc_path, "r");
+    if( fp == NULL ){
+        rt_fatal("Can't open [%s]!\n", proc_path);
+        return -1;
+    }
+    
+    char r_buf[32]={0};
+    int rc = fread(r_buf, 1, sizeof(r_buf), fp);
+    if( rc <= 0 ) {
+        rt_fatal("fread [%s] failed.", proc_path);
+        fclose(fp);
+        return -1;
+    }
+    
+    if( r_buf[rc-1] == '\r' || r_buf[rc-1] == '\n') {
+        --rc;//skip \r or \n end of line
+    }
+    strncpy(proc_name, r_buf, rc);
+    proc_name[rc]='\0';
+
+    return 0;
+}
+
 static int parse_basic_station_json(const char *conf_file)
 {
-    if(conf_file==NULL){
+    if( conf_file == NULL ){
         LOG(MOD_SYS|ERROR, "Invalid pointer.");
         return -1;
     }
-    if(access(conf_file, F_OK) != 0){
+    if( access(conf_file, F_OK) != 0 ){
         LOG(MOD_SYS|ERROR, "Conf file[%s] not existed.", conf_file);
         return -1;
     }
 
     JSON_Value *ConfRoot = json_parse_file_with_comments(conf_file);
-    if(ConfRoot==NULL){
+    if( ConfRoot == NULL ){
         LOG(MOD_SYS|ERROR, "Station config is not valid json!");
     }
 
     JSON_Object *stationObj = json_object_get_object(json_value_get_object(ConfRoot), "station");
-    if(stationObj==NULL){
+    if( stationObj == NULL ){
         LOG(MOD_SYS|ERROR, "Can't get conf object!");
         json_value_free(ConfRoot);
         return -1;
@@ -1196,23 +1236,23 @@ static int parse_basic_station_json(const char *conf_file)
 
     int val=0;
     JSON_Value *JsonV = json_object_get_value(stationObj, "server_name");
-    if(JsonV != NULL){
+    if( JsonV != NULL ){
         char *strV = (char *)json_value_get_string(JsonV);
-        if(strV){
+        if( strV ){
             memcpy(gBSFilter.server_name, strV, sizeof(gBSFilter.server_name));
             LOG(MOD_SYS|INFO, "[SETTING] Found a server configure, name is configure to [%s]\n", gBSFilter.server_name);
-        }else{
+        } else {
             memcpy(gBSFilter.server_name, "primary_server", sizeof(gBSFilter.server_name));
             LOG(MOD_SYS|INFO, "[SETTING] Server not configure, configure randon name [primary_server]");
         }
     }
 
     JsonV = json_object_get_value(stationObj, "fport_filter");
-    if(JsonV != NULL){
+    if( JsonV != NULL ){
         val = json_value_get_number(JsonV);
-        if(val==1)
+        if( val == 1 )
             gBSFilter.filter.fport=INCLUDE;
-        else if(val==2)
+        else if( val == 2 )
             gBSFilter.filter.fport=EXCLUDE;
         else
             gBSFilter.filter.fport=NOFILTER;
@@ -1220,11 +1260,11 @@ static int parse_basic_station_json(const char *conf_file)
     }
 
     JsonV = json_object_get_value(stationObj, "devaddr_filter");
-    if(JsonV != NULL){
+    if( JsonV != NULL ){
         val = json_value_get_number(JsonV);
-        if(val==1)
+        if( val == 1 )
             gBSFilter.filter.devaddr=INCLUDE;
-        else if(val==2)
+        else if( val == 2 )
             gBSFilter.filter.devaddr=EXCLUDE;
         else
             gBSFilter.filter.devaddr=NOFILTER;
@@ -1232,11 +1272,11 @@ static int parse_basic_station_json(const char *conf_file)
     }
 
     JsonV = json_object_get_value(stationObj, "nwkid_filter");
-    if(JsonV != NULL){
+    if( JsonV != NULL ){
         val = json_value_get_number(JsonV);
-        if(val==1)
+        if( val == 1 )
             gBSFilter.filter.nwkid=INCLUDE;
-        else if(val==2)
+        else if( val == 2 )
             gBSFilter.filter.nwkid=EXCLUDE;
         else
             gBSFilter.filter.nwkid=NOFILTER;
@@ -1246,9 +1286,9 @@ static int parse_basic_station_json(const char *conf_file)
     JsonV = json_object_get_value(stationObj, "deveui_filter");
     if(JsonV != NULL){
         val = json_value_get_number(JsonV);
-        if(val==1)
+        if( val == 1 )
             gBSFilter.filter.deveui=INCLUDE;
-        else if(val==2)
+        else if( val == 2 )
             gBSFilter.filter.deveui=EXCLUDE;
         else
             gBSFilter.filter.deveui=NOFILTER;
@@ -1349,7 +1389,11 @@ int sys_main (int argc, char** argv) {
         if( v && !setHomeDir(v, source) )
             return 1;
     }
-
+    
+    if( get_process_name(gProcName) ) {
+        rt_fatal("readlink get process name failed!");
+        return -1;
+    }
     if( !parseStationConf() )
         return 1;
     if( opts->params ) {
