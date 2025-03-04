@@ -80,7 +80,7 @@ int relay_stop(serv_s* serv) {
     if (!GW.relay.as_relay) 
         return 0;
     serv->thread.stop_sig = true;
-	sem_post(&serv->thread.sema);
+    sem_post(&serv->thread.sema);
     pthread_join(serv->thread.t_up, NULL);
     serv->state.live = false;
     LGW_LIST_LOCK(&GW.rxpkts_list);
@@ -101,13 +101,13 @@ static void relay_push_up(void* arg) {
 
     lgw_log(LOG_INFO, "%s[THREAD][%s-UP] Starting...\n", INFOMSG, serv->info.name);
 
-	while (!serv->thread.stop_sig) {
+    while (!serv->thread.stop_sig) {
         sem_wait(&serv->thread.sema);
         do {
             serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
             serv_ct->serv = serv;
             serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
-                                                               //
+
             if (serv_ct->nb_pkt == 0) { 
                 lgw_free(serv_ct);
                 break;
@@ -173,6 +173,6 @@ static void relay_push_up(void* arg) {
         } while (GW.rxpkts_list.size > 1 && (!serv->thread.stop_sig));
     }
 
-	lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
+    lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
 }
 
