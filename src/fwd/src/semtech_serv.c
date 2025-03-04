@@ -83,7 +83,7 @@ int semtech_start(serv_s* serv) {
     GW.info.service_count++;
     LGW_LIST_UNLOCK(&GW.rxpkts_list);
 
-    char family[96], status_value[32];  
+    char family[96], status_value[32];
     snprintf(family, sizeof(family), "service/lorawan/%s", serv->info.name);
     snprintf(status_value, sizeof(status_value), "%ld:offline", time(NULL));
     lgw_db_put(family, "network1", status_value);
@@ -628,7 +628,7 @@ static void thread_push_up(void* arg) {
 
     pthread_mutex_lock(&mx_pthread_count);
     if (send(serv->net->sock_up, (void *)buff_up, buff_index, 0) == -1) {
-        lgw_log(LOG_DEBUG, "%s[DEBUG][%s-UP] sending: %s\n", ERRMSG, serv->info.name, strerror(errno)); 
+        lgw_log(LOG_PKT, "%s[PKTS][%s-UP] sending: %s\n", ERRMSG, serv->info.name, strerror(errno)); 
         lgw_free(serv_ct);
         pthread_count--;
         pthread_mutex_unlock(&mx_pthread_count);
@@ -869,7 +869,7 @@ static void semtech_pull_down(void* arg) {
          *  pull_ack:  receive pull ACK count
          */
 
-        if ((pull_ack != pull_send ) || (serv->net->sock_down == -1) || (serv->net->sock_up == -1)) {    
+        if ((pull_ack != pull_send ) || (serv->net->sock_down == -1) || (serv->net->sock_up == -1)) {
             pull_send = 0;
             pull_ack = 0;
 
@@ -877,7 +877,7 @@ static void semtech_pull_down(void* arg) {
 
             serv->state.connecting = false;
             GW.info.network_status = false;
-            Close(serv->net->sock_down);   
+            Close(serv->net->sock_down);
             Close(serv->net->sock_up);
 
             serv->net->sock_down = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));

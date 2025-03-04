@@ -239,6 +239,8 @@ void  rt_addFeature (str_t s);
 str_t rt_features ();
 
 extern str_t rt_deveui, rt_joineui;
+extern char gProcName[32];
+
 
 // --------------------------------------------------------------------------------
 //

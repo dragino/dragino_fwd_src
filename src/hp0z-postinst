@@ -2,6 +2,7 @@
 PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 VER="2022-05-26"
 uci set gateway.general.fwd_version="$VER"
+
 uci commit gateway
 /usr/local/dragino/generate-config.sh start > /dev/null 2>&1
 systemctl enable draginofwd

@@ -212,8 +212,8 @@ int mqtt_start(serv_s* serv) {
 void mqtt_stop(serv_s* serv) {
     char family[64];
     serv->thread.stop_sig = true;
-	sem_post(&serv->thread.sema);
-	pthread_join(serv->thread.t_up, NULL);
+    sem_post(&serv->thread.sema);
+    pthread_join(serv->thread.t_up, NULL);
     if (serv->state.connecting) 
         mqtt_disconnect(serv);
     mqtt_cleanup((mqttsession_s*)serv->net->mqtt->session);
@@ -231,10 +231,10 @@ void mqtt_stop(serv_s* serv) {
 static void mqtt_push_up(void* arg) {
     serv_s* serv = (serv_s*) arg;
 
-	int i;					/*!> loop variables */
+    int i;					/*!> loop variables */
     int err;
     int nb_pkt = 0;
-	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
+    struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
 
     mqttsession_s* session = (mqttsession_s*)serv->net->mqtt->session;
 
@@ -244,9 +244,9 @@ static void mqtt_push_up(void* arg) {
 
     lgw_log(LOG_INFO, "[INFO~][%s] starting mqtt_push_up thread...\n", serv->info.name);
 
-	while (!serv->thread.stop_sig) {
-		// wait for data to arrive
-		sem_wait(&serv->thread.sema);
+    while (!serv->thread.stop_sig) {
+        // wait for data to arrive
+        sem_wait(&serv->thread.sema);
         serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
         serv_ct->serv = serv;
 

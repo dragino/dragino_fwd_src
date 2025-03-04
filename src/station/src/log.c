@@ -82,7 +82,7 @@ static int log_header (u1_t mod_level) {
     int mod = (mod_level & MOD_ALL) >> 3;
     logbuf.pos = 0;
     str_t mod_s = slaveMod[0] ? slaveMod : mod >= SIZE_ARRAY(MODSTR) ? "???":MODSTR[mod];
-    xprintf(&logbuf, "%.3T [%s:%s] ", rt_getUTC(), mod_s, LVLSTR[mod_level & 7]);
+    xprintf(&logbuf, "%.3T %s[%s:%s] ", rt_getUTC(), gProcName, mod_s, LVLSTR[mod_level & 7]);
     return logbuf.pos;
 }
 

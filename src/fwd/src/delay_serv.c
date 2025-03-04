@@ -100,19 +100,19 @@ int delay_start(serv_s* serv) {
     lgw_db_put("thread", serv->info.name, "running");
 
     if (GW.cfg.delay_db_path[0] != '\0') {
-	    if (sqlite3_open(GW.cfg.delay_db_path, &delay_db) != SQLITE_OK) {
-		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable to open storage database '%s': %s\n", WARNMSG, GW.cfg.delay_db_path, sqlite3_errmsg(delay_db));
+    if (sqlite3_open(GW.cfg.delay_db_path, &delay_db) != SQLITE_OK) {
+            lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable to open storage database '%s': %s\n", WARNMSG, GW.cfg.delay_db_path, sqlite3_errmsg(delay_db));
         } else if (sqlite3_exec(delay_db, CREATE_TB_DELAY_PKTS, NULL, 0, &err_msg) != SQLITE_OK) {
-		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable to create storage tables.\n", WARNMSG);
+            lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable to create storage tables.\n", WARNMSG);
             sqlite3_free(err_msg);
         } else if (sqlite3_prepare_v2(delay_db, store_pkts, -1, &store_pkts_stmt, 0) != SQLITE_OK) {
-		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare store_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
+            lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare store_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
         } else if (sqlite3_prepare_v2(delay_db, get_pkts, -1, &get_pkts_stmt, 0) != SQLITE_OK) {
-		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare get_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
+            lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare get_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
         } else if (sqlite3_prepare_v2(delay_db, del_pkts, -1, &del_pkts_stmt, 0) != SQLITE_OK) {
-		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare del_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
+            lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare del_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
         } else if (sqlite3_prepare_v2(delay_db, "SELECT COUNT(*) FROM delay_pkts", -1, &count_pkts_stmt, 0) != SQLITE_OK) {
-		    lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare count_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
+            lgw_log(LOG_WARNING, "%s[\033[1;34mDELAY\033[m] Unable prepare count_pkts stmt : %s\n", WARNMSG, sqlite3_errmsg(delay_db));
         } else 
             has_db_storage = true;
 
@@ -177,7 +177,7 @@ int delay_pkt_get(int max, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the n
         LGW_LIST_TRAVERSE_SAFE_END;
         LGW_LIST_UNLOCK(&delay_pkt_list);
 
-	    lgw_log(LOG_DEBUG, "%s[\033[1;34mDELAY\033[m] get %i, remain %i packet(s)\n", DEBUGMSG, nb_pkt, delay_pkt_list.size);
+        lgw_log(LOG_DEBUG, "%s[\033[1;34mDELAY\033[m] get %i, remain %i packet(s)\n", DEBUGMSG, nb_pkt, delay_pkt_list.size);
 
     } else {
         int count = 0;
@@ -210,19 +210,19 @@ int delay_pkt_get(int max, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the n
 
         sqlite3_reset(get_pkts_stmt);
 
-	    lgw_log(LOG_DEBUG, "%s[\033[1;34mDELAY\033[m] get %i packets from db storage.\n", DEBUGMSG, nb_pkt);
+        lgw_log(LOG_DEBUG, "%s[\033[1;34mDELAY\033[m] get %i packets from db storage.\n", DEBUGMSG, nb_pkt);
 
         if (id > 0) {
             sqlite3_bind_int(del_pkts_stmt, 1, id + 1);
             pkts = sqlite3_column_count(del_pkts_stmt);
             sqlite3_step(del_pkts_stmt);
             sqlite3_reset(del_pkts_stmt);
-	        lgw_log(LOG_DEBUG, "%s[\033[1;34mDELAY\033[m] remove %i packets from db storage.\n", DEBUGMSG, pkts);
+            lgw_log(LOG_DEBUG, "%s[\033[1;34mDELAY\033[m] remove %i packets from db storage.\n", DEBUGMSG, pkts);
         }
 
     }
 
-	return nb_pkt;
+    return nb_pkt;
 }
 
 static void delay_package_thread(void* arg) {
@@ -234,7 +234,7 @@ static void delay_package_thread(void* arg) {
 
     lgw_log(LOG_INFO, "%s[THREAD][%s-UP] Starting....\n", INFOMSG, serv->info.name);
 
-	while (!serv->thread.stop_sig) {
+    while (!serv->thread.stop_sig) {
 
         sem_wait(&serv->thread.sema);
 
@@ -290,6 +290,6 @@ static void delay_package_thread(void* arg) {
         } while (GW.rxpkts_list.size > 1 && (!serv->thread.stop_sig));
     }
 
-	lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
+    lgw_log(LOG_INFO, "\n%s[THREAD][%s-UP] Ended!\n", INFOMSG, serv->info.name);
 }
 

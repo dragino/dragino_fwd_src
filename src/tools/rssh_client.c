@@ -490,123 +490,123 @@ static void wait_ms(unsigned long a) {
 }
 
 static int init_sock(const char *addr, const char *port, const void *timeout, int size) {
-	int i;
+    int i;
     int sockfd;
-	/* network socket creation */
-	struct addrinfo hints;
-	struct addrinfo *result;	/* store result of getaddrinfo */
-	struct addrinfo *q;			/* pointer to move into *result data */
+    /* network socket creation */
+    struct addrinfo hints;
+    struct addrinfo *result;	/* store result of getaddrinfo */
+    struct addrinfo *q;			/* pointer to move into *result data */
 
-	char host_name[64];
-	char port_name[64];
+    char host_name[64];
+    char port_name[64];
 
-	/* prepare hints to open network sockets */
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_INET;	/* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
-	hints.ai_socktype = SOCK_DGRAM;
+    /* prepare hints to open network sockets */
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;	/* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
+    hints.ai_socktype = SOCK_DGRAM;
 
-	/* look for server address w/ upstream port */
-	i = getaddrinfo(addr, port, &hints, &result);
-	if (i != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", addr, port, gai_strerror(i));
-	    freeaddrinfo(result);
-		return -1;
-	}
+    /* look for server address w/ upstream port */
+    i = getaddrinfo(addr, port, &hints, &result);
+    if (i != 0) {
+        lgw_log(LOG_ERROR, "ERROR~ [NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", addr, port, gai_strerror(i));
+        freeaddrinfo(result);
+        return -1;
+    }
 
-	/* try to open socket for upstream traffic */
-	for (q = result; q != NULL; q = q->ai_next) {
-		sockfd = socket(q->ai_family, q->ai_socktype, q->ai_protocol);
-		if (sockfd == -1)
-			continue;			/* try next field */
-		else
-			break;			/* success, get out of loop */
-	}
+    /* try to open socket for upstream traffic */
+    for (q = result; q != NULL; q = q->ai_next) {
+        sockfd = socket(q->ai_family, q->ai_socktype, q->ai_protocol);
+        if (sockfd == -1)
+            continue;			/* try next field */
+        else
+            break;			/* success, get out of loop */
+    }
 
-	if (q == NULL) {
-		lgw_log(LOG_ERROR, "ERROR~ [NETWORK] failed to open socket to any of server %s addresses (port %s)\n", addr, port);
-		i = 1;
-		for (q = result; q != NULL; q = q->ai_next) {
-			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name,
-						port_name, sizeof port_name, NI_NUMERICHOST);
-			++i;
-		}
-    	freeaddrinfo(result);
+    if (q == NULL) {
+        lgw_log(LOG_ERROR, "ERROR~ [NETWORK] failed to open socket to any of server %s addresses (port %s)\n", addr, port);
+        i = 1;
+        for (q = result; q != NULL; q = q->ai_next) {
+            getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name,
+                        port_name, sizeof port_name, NI_NUMERICHOST);
+            ++i;
+        }
+        freeaddrinfo(result);
 
-		return -1;
-	}
+        return -1;
+    }
 
-	/* connect so we can send/receive packet with the server only */
-	i = connect(sockfd, q->ai_addr, q->ai_addrlen);
-	if (i != 0) {
-		lgw_log(LOG_ERROR, "WARM~ [NETWORK] connecting... %s\n", strerror(errno));
-	    freeaddrinfo(result);
-		return -1;
-	}
+    /* connect so we can send/receive packet with the server only */
+    i = connect(sockfd, q->ai_addr, q->ai_addrlen);
+    if (i != 0) {
+        lgw_log(LOG_ERROR, "WARM~ [NETWORK] connecting... %s\n", strerror(errno));
+        freeaddrinfo(result);
+        return -1;
+    }
 
-	freeaddrinfo(result);
+    freeaddrinfo(result);
 
-	if ((setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size)) != 0) {
-		lgw_log(LOG_ERROR, "ERROR~ [NETWORK] setsockopt returned %s\n", strerror(errno));
-		return -1;
-	}
+    if ((setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size)) != 0) {
+        lgw_log(LOG_ERROR, "ERROR~ [NETWORK] setsockopt returned %s\n", strerror(errno));
+        return -1;
+    }
 
-	return sockfd;
+    return sockfd;
 }
 
 static int check(char *dir)
 {
-	int i;
-	for(i = 0; dir[i] != '\0'; i++)
-	{
-		if(!isdigit(dir[i]))
-		{
-			return 0;
-		}
-	}
-	return 1;
+    int i;
+    for(i = 0; dir[i] != '\0'; i++)
+    {
+        if(!isdigit(dir[i]))
+        {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 static int pidof(char *processname)
 {
-	DIR *dir;
-	FILE *f;
-	struct dirent *record;
+    DIR *dir;
+    FILE *f;
+    struct dirent *record;
     int i = 0, pid = 0;
 
-	int *pidlist,pidlist_x=0, pidlist_realloc=1;
-	char path[128], buffer[8];
+    int *pidlist,pidlist_x=0, pidlist_realloc=1;
+    char path[128], buffer[8];
 
-	dir = opendir("/proc/");
-	if(dir == NULL) {
-		return -1;
-	}
+    dir = opendir("/proc/");
+    if(dir == NULL) {
+        return -1;
+    }
 
-	while ((record = readdir(dir)) != NULL) {
-		if (check(record->d_name)) {
-			strcpy(path, "/proc/");
-			strcat(path, record->d_name);
-			strcat(path, "/comm");
+    while ((record = readdir(dir)) != NULL) {
+        if (check(record->d_name)) {
+            strcpy(path, "/proc/");
+            strcat(path, record->d_name);
+            strcat(path, "/comm");
 
-			f = fopen(path, "r");
+            f = fopen(path, "r");
 
-			if (f != NULL) {
+            if (f != NULL) {
                 memset(buffer, 0, sizeof(buffer));
                 fread(buffer, sizeof(char), sizeof(buffer) - 1, f);
                 //printf("#%s++buffer:%s\n", record->d_name, buffer);
-				if (strcmp(buffer, processname) == 0) {
-					pid = atoi(record->d_name);
-			        fclose(f);
+                if (strcmp(buffer, processname) == 0) {
+                    pid = atoi(record->d_name);
+                    fclose(f);
                     return pid;
-				}
-			} 
+                }
+            } 
 
-			fclose(f);
-		}		 
-	}
+            fclose(f);
+        }		 
+    }
 
-	closedir(dir);
+    closedir(dir);
 
-	return -1;
+    return -1;
 }
 
 
