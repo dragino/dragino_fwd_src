@@ -50,6 +50,7 @@
 #include <netdb.h>				/*!> gai_strerror */
 
 #include <pthread.h>
+#include "parson.h"
 #include "fwd.h"
 #include "ghost.h"
 #include "loragw_hal.h"
@@ -109,15 +110,168 @@ static void print_rx(struct lgw_pkt_rx_s *p) {
 
 /*!> Method to fill lgw_pkt_rx_s with data */
 static void fill_rx(struct lgw_pkt_rx_s *p, uint8_t *payload, uint32_t us) {
+#ifdef LGW_TEST_VERSION
+    JSON_Value *root_val = NULL;
+    JSON_Object *virt_obj = NULL;
+    JSON_Value *val = NULL; 
+    const char *str; 
+    uint8_t size;
+
+    /*!> ghost debug payload: {"rxpk":[{
+     *      "tmst":xx, "chan":xx, "rfch":xx, "freq":xx,  "bw":xx, "stat":xx,
+     *      "modu":"LoRA", "datr":xx, "codr":"", "size":xx, "data":""}
+     *      ]}"
+     **/
+    root_val = json_parse_string_with_comments((const char*)payload);
+    if (root_val == NULL) {
+        lgw_log(LOG_DEBUG, "%s[DEBUG][VIRT] invalid JSON, fill_tx aborted\n", DEBUGMSG);
+        goto NORMAL;
+    }
+    virt_obj = json_object_get_object(json_value_get_object(root_val), "rxpk");
+    if (virt_obj == NULL) {
+        lgw_log(LOG_DEBUG, "%s[DEBUG][VIRT] no \"rxpk\" object in JSON, TX aborted\n", DEBUGMSG);
+        json_value_free(root_val);
+        goto NORMAL;
+    }
+
+    val = json_object_get_value(virt_obj, "tmst");
+    if (val != NULL) {
+        p->count_us = (uint32_t)json_value_get_number(val);
+    } else
+        p->count_us = us;
+
+    val = json_object_get_value(virt_obj, "rfch");
+    if (val != NULL) {
+        p->rf_chain = (uint8_t)json_value_get_number(val);
+    } else
+        p->rf_chain = 2;  /* not the regular radio chan */
+
+    val = json_object_get_value(virt_obj, "chan");
+    if (val != NULL) {
+        p->if_chain = (uint8_t)json_value_get_number(val);
+    } else
+        p->if_chain = 2;  
+
+    val = json_object_get_value(virt_obj, "freq");
+    if (val != NULL) {
+        p->freq_hz = (uint32_t)((double)(1.0e6) * json_value_get_number(val));
+    } else
+        p->freq_hz = (uint32_t) 868500000;  /* TODO: random channel freq */
+
+    val = json_object_get_value(virt_obj, "bw");
+    if (val != NULL) {
+        switch ((uint32_t)json_value_get_number(val)) {
+            case 250000:
+                p->bandwidth = BW_250KHZ;
+                break;
+            case 500000:
+                p->bandwidth = BW_500KHZ;
+                break;
+            default:
+                p->bandwidth = BW_125KHZ;
+                break;
+        }
+    } else
+        p->freq_hz = BW_125KHZ;  
+
+    val = json_object_get_value(virt_obj, "datr");
+    if (val != NULL) {
+        switch ((uint8_t)json_value_get_number(val)) {
+            case 8:
+                p->datarate = DR_LORA_SF8;
+                break;
+            case 9:
+                p->datarate = DR_LORA_SF9;
+                break;
+            case 10:
+                p->datarate = DR_LORA_SF10;
+                break;
+            case 11:
+                p->datarate = DR_LORA_SF11;
+                break;
+            case 12:
+                p->datarate = DR_LORA_SF12;
+                break;
+            default:
+                p->datarate = DR_LORA_SF7;
+                break;
+        }
+    } else
+        p->datarate = DR_LORA_SF7;
+
+    val = json_object_get_value(virt_obj, "codr");
+    if (val != NULL) {
+        switch ((uint8_t)json_value_get_number(val)) {
+            case 6:
+	            p->coderate = CR_LORA_4_6;
+                break;
+            case 7:
+	            p->coderate = CR_LORA_4_7;
+                break;
+            case 8:
+	            p->coderate = CR_LORA_4_8;
+                break;
+            default:
+	            p->coderate = CR_LORA_4_5;
+                break;
+        }
+    } else
+	    p->coderate = CR_LORA_4_5;
+
+    val = json_object_get_value(virt_obj, "size");
+    if (val != NULL) {
+        size = (uint8_t)json_value_get_number(val);
+        if ( size > 8 && size < 255 )
+            p->size = size;
+        else 
+            p->size = 32;
+    } else
+            p->size = 64;
+
+    val = json_object_get_value(virt_obj, "stat");
+    if (val != NULL) {
+        switch ((uint8_t)json_value_get_number(val)) {
+            case 0:
+                p->status = STAT_NO_CRC;
+                break;
+            case 1:
+                p->status = STAT_CRC_OK;
+                break;
+            case 2:
+                p->status = STAT_CRC_BAD;
+                break;
+            default:
+                p->status = STAT_UNDEFINED;
+                break;
+        }
+    } else
+        p->status = STAT_CRC_OK;
+
+    str = json_object_get_string(virt_obj, "data");
+    if (str = NULL) {
+        json_value_free(root_val);
+        goto NORMAL;
+    } else
+	    strncpy(p->payload, str, p->size);
+
+	p->rssis = -112;
+	p->snr = 22;
+	p->snr_min = 11;
+	p->snr_max = 43;
+	p->crc = 3344;
+	p->modulation = MOD_LORA;
+    json_value_free(root_val);
+    return;
+#endif
+NORMAL:
 	p->freq_hz = (uint32_t) 868320000;
 	p->if_chain = 2;
+	p->rf_chain = 2;
 	p->status = STAT_CRC_OK;
-	p->count_us = us;
-	p->rf_chain = 1;
-	p->modulation = MOD_LORA;
 	p->bandwidth = BW_125KHZ;
 	p->datarate = DR_LORA_SF10;
 	p->coderate = CR_LORA_4_5;
+	p->count_us = us;
 	p->rssis = -112;
 	p->snr = 22;
 	p->snr_min = 11;
@@ -125,6 +279,7 @@ static void fill_rx(struct lgw_pkt_rx_s *p, uint8_t *payload, uint32_t us) {
 	p->crc = 2234;
 	p->size = 48;
 	memcpy((p->payload), payload, p->size);
+	p->modulation = MOD_LORA;
 }
 
 static void thread_ghost(void);
@@ -155,7 +310,7 @@ bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwi
 	/*!> Get the credentials for this server. */
 	i = getaddrinfo(ghost_addr, ghost_port, &addresses, &result);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "[ERROR~][ghost] getaddrinfo on address %s (PORT %s) returned %s\n", ghost_addr, ghost_port, gai_strerror(i));
+		lgw_log(LOG_ERROR, "[ERROR~][GHOST] getaddrinfo on address %s (PORT %s) returned %s\n", ghost_addr, ghost_port, gai_strerror(i));
         return false;
 	}
 
@@ -176,11 +331,11 @@ bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwi
 
 	/*!> See if the connection was a success, if not, this is a permanent failure */
 	if (q == NULL) {
-		lgw_log(LOG_ERROR, "[ERROR~][ghost] failed to open socket to any of server %s addresses (port %s)\n", ghost_addr, ghost_port);
+		lgw_log(LOG_ERROR, "[ERROR~][GHOST] failed to open socket to any of server %s addresses (port %s)\n", ghost_addr, ghost_port);
 		i = 1;
 		for (q = result; q != NULL; q = q->ai_next) {
 			getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
-			lgw_log(LOG_INFO, "[INFO~][ghost] result %i host:%s service:%s\n", i, host_name, port_name);
+			lgw_log(LOG_INFO, "[INFO~][GHOST] result %i host:%s service:%s\n", i, host_name, port_name);
 			++i;
 		}
         return false;
@@ -191,7 +346,7 @@ bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwi
 	/*!> spawn thread to manage ghost connection */
 	i = lgw_pthread_create(&thrid_ghost, NULL, (void *(*)(void *))thread_ghost, NULL);
 	if (i != 0) {
-		lgw_log(LOG_ERROR, "[ERROR~][ghost] impossible to create ghost thread\n");
+		lgw_log(LOG_ERROR, "[ERROR~][GHOST] impossible to create ghost thread\n");
         return false;
 	}
 
@@ -204,31 +359,36 @@ bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwi
 
 void ghost_stop(void) {
     cnt_ghost = 0;
-	ghost_run = false;			/*!> terminate the loop. */
-	pthread_cancel(thrid_ghost);	/*!> don't wait for downstream thread (is this okay??) */
+	ghost_run = false;			        /*!> terminate the loop. */
+	pthread_cancel(thrid_ghost);	    /*!> don't wait for downstream thread (is this okay??) */
 	shutdown(sock_ghost, SHUT_RDWR);	/*!> close the socket. */
 }
 
 /*!> Call this to pull data from the receive buffer for ghost nodes.. */
 int ghost_get(int max_pkt, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the number of available packets */
-    int i = cnt_ghost;
+    int c = cnt_ghost;
+    int s = 0;
     if (cnt_ghost == 0) {
         return 0;
     }
 
+    if ( max_pkt < c ) {
+        s = c;
+        c = max_pkt;
+		lgw_log(LOG_DEBUG, "[DEBUG~][GHOST] Drop %i packets from NETC \n", s - max_pkt);
+    }
+
 	pthread_mutex_lock(&cb_ghost);
 
-    memcpy(pkt_data, &rxpkt, sizeof(struct lgw_pkt_rx_s) * cnt_ghost);
+    memcpy(pkt_data, &rxpkt, sizeof(struct lgw_pkt_rx_s) * c);
 
     cnt_ghost = 0;  /*!> reset */
 
 	pthread_mutex_unlock(&cb_ghost);
 
-	if (i > 0) {
-		lgw_log(LOG_INFO, "[INFO~][ghost] copied %i packets from ghost \n", i);
-	}
+	lgw_log(LOG_INFO, "[INFO~][GHOST] copied %i packets from NETC \n", c);
 
-	return i;
+	return c;
 }
 
 static void thread_ghost(void) {
@@ -244,16 +404,16 @@ static void thread_ghost(void) {
     struct sockaddr_storage dist_addr;
     socklen_t addr_len = sizeof dist_addr;
 
-	lgw_log(LOG_INFO, "[INFO~][ghost] Ghost thread started...\n");
+	lgw_log(LOG_INFO, "[INFO~][GHOST] Ghost thread started...\n");
 
 	while (ghost_run) {			
 
         memset( databuf_rec, 0, sizeof(databuf_rec) );
-        byte_nb = recvfrom( sock_ghost, databuf_rec, sizeof(databuf_rec), 0, (struct sockaddr *)&dist_addr, &addr_len );
+        byte_nb = recvfrom(sock_ghost, databuf_rec, sizeof(databuf_rec), 0, (struct sockaddr *)&dist_addr, &addr_len);
 
         if( byte_nb == -1 )
         {
-            lgw_log( LOG_ERROR, "[ERROR~][ghost] recvfrom returned %s \n", strerror( errno ) );
+            lgw_log( LOG_ERROR, "[ERROR~][GHOST] recvfrom returned %s \n", strerror( errno ) );
             continue;
         }
 
@@ -261,12 +421,12 @@ static void thread_ghost(void) {
 
 		/*!> make a copy to the data received to the circular buffer, and shift the write index. */
 		if (++cnt_ghost > GHST_NB_PKT) {
-			lgw_log(LOG_WARNING, "[WARNING~][ghost] buffer is full, dropping packet)\n");
+			lgw_log(LOG_WARNING, "[WARNING~][GHOST] buffer is full, dropping packet)\n");
 		} else {
             gettimeofday(&current_unix_time, NULL);
             rec_us = current_unix_time.tv_sec + current_unix_time.tv_usec;
             fill_rx(&rxpkt[cnt_ghost - 1], databuf_rec, rec_us);
-			lgw_log(LOG_INFO, "[INFO~][ghost] RECEIVED ghst_index = %i \n", cnt_ghost);
+			lgw_log(LOG_INFO, "[INFO~][GHOST] RECEIVED ghst_index = %i \n", cnt_ghost);
         }
 
 		pthread_mutex_unlock(&cb_ghost);
@@ -287,5 +447,5 @@ static void thread_ghost(void) {
         
     }
 
-	lgw_log(LOG_INFO, "[INFO~][ghost] End of ghost thread\n");
+	lgw_log(LOG_INFO, "[INFO~][GHOST] End of ghost thread\n");
 }

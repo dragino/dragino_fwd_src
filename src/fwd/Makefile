@@ -8,22 +8,25 @@ CROSS_COMPILE ?=
 CC := $(CROSS_COMPILE)gcc
 AR := $(CROSS_COMPILE)ar
 
+#TFLAGS ?= 
+TFLAGS = -DLGW_TEST_VERSION
+
 MQTT_PATH ?= ../libmqtt
 
 ifdef SX1301MOD
 APP_NAME = fwd_sx1301
 LGW_PATH = ../sx1301hal
-LCFLAGS = $(CFLAGS) -DSX1301MOD -DBIGENDIAN -fPIC -Iinc -I. -I../sx1301hal/inc -I../libmqtt
+LCFLAGS = $(CFLAGS) $(TFLAGS) -DSX1301MOD -DBIGENDIAN -fPIC -Iinc -I. -I../sx1301hal/inc -I../libmqtt
 LLIBS := -lsx1301hal -L$(LGW_PATH) -lsqlite3 -lpthread -lm -lmpsse -L$(MQTT_PATH) -lpahomqtt3c
 else ifdef HP0MOD
 APP_NAME = fwd_sx1302
 LGW_PATH = ../sx1302hal
-LCFLAGS = $(CFLAGS) -DSX1302MOD -DHP0C -fPIC -Iinc -I. -I../sx1302hal/inc -I../libmqtt
+LCFLAGS = $(CFLAGS) $(TFLAGS) -DSX1302MOD -DHP0C -fPIC -Iinc -I. -I../sx1302hal/inc -I../libmqtt
 LLIBS := -lsx1302hal -L$(LGW_PATH) -lsqlite3 -lpthread -lm -L$(MQTT_PATH) -lpahomqtt3c
 else
 APP_NAME = fwd_sx1302
 LGW_PATH = ../sx1302hal
-LCFLAGS = $(CFLAGS) -DSX1302MOD -DBIGENDIAN -fPIC -Iinc -I. -I../sx1302hal/inc -I../libmqtt
+LCFLAGS = $(CFLAGS) $(TFLAGS) -DSX1302MOD -DBIGENDIAN -fPIC -Iinc -I. -I../sx1302hal/inc -I../libmqtt
 LLIBS := -lsx1302hal -L$(LGW_PATH) -lsqlite3 -lpthread -lm -lmpsse -L$(MQTT_PATH) -lpahomqtt3c
 endif
 

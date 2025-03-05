@@ -7,8 +7,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=dragino_gw_fwd
-PKG_VERSION:=3.2.2
-PKG_RELEASE:=cfbd4a68bf842bf-cbf771
+PKG_VERSION:=3.2.2-alpha
+PKG_RELEASE:=0672b1fda3d25cc-287e54
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 

@@ -43,7 +43,11 @@
 #define GHST_RX_BUFFSIZE     240	/* Size of buffer held for receiving packets  */
 #define GHST_TX_BUFFSIZE     320	/* Size of buffer held for sending packets  */
 
+#ifdef LGW_TEST_VERSION
+#define GHST_NB_PKT                32
+#else
 #define GHST_NB_PKT                12
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS PROTOTYPES ------------------------------------------ */
