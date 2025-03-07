@@ -45,16 +45,34 @@ DECLARE_GW;
 static void gwtraf_push_up(void* arg);
 
 int gwtraf_start(serv_s* serv) {
-    serv->net->sock_up = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
-    if (lgw_pthread_create_background(&serv->thread.t_up, NULL, (void *(*)(void *))gwtraf_push_up, serv)) {
-        lgw_log(LOG_WARNING, "[WARNING~][%s] Can't create push up pthread.\n", serv->info.name);
+    if (!serv || !serv->net) {
+        lgw_log(LOG_ERROR, "[ERROR] Invalid service parameters\n");
         return -1;
     }
+
+    serv->net->sock_up = init_sock(serv->net->addr, serv->net->port_up, 
+                                 &serv->net->push_timeout_half, sizeof(struct timeval));
+    
+    if (serv->net->sock_up < 0) {
+        lgw_log(LOG_ERROR, "[ERROR~][%s] Failed to initialize upstream socket\n", serv->info.name);
+        return -1;
+    }
+
+    if (lgw_pthread_create_background(&serv->thread.t_up, NULL, 
+                                    (void *(*)(void *))gwtraf_push_up, serv)) {
+        lgw_log(LOG_WARNING, "[WARNING~][%s] Can't create push up pthread\n", serv->info.name);
+        close(serv->net->sock_up);
+        serv->net->sock_up = -1;
+        return -1;
+    }
+
     serv->state.live = true;
     serv->state.stall_time = 0;
+    
     LGW_LIST_LOCK(&GW.rxpkts_list);
     GW.info.service_count++;
     LGW_LIST_UNLOCK(&GW.rxpkts_list);
+    
     lgw_db_put("service/traffic", serv->info.name, "running");
     lgw_db_put("thread", serv->info.name, "running");
 
@@ -77,62 +95,71 @@ void gwtraf_stop(serv_s* serv) {
 
 static void gwtraf_push_up(void* arg) {
     serv_s* serv = (serv_s*) arg;
-	int i, j;					/*!> loop variables */
-	int strt, retry;
+    if (!serv) {
+        lgw_log(LOG_ERROR, "[ERROR] Invalid service parameter\n");
+        return;
+    }
+
+    int i, j;                    /*!> loop variables */
+    int strt, retry;
     int nb_pkt = 0;
-	/*!> allocate memory for packet fetching and processing */
-	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
+    struct lgw_pkt_rx_s *p;    /*!> pointer on a RX packet */
+    serv_ct_s *serv_ct = NULL;
 
-	/*!> local copy of GPS time reference */
-	bool ref_ok = false;		/*!> determine if GPS time reference must be used or not */
-	struct tref local_ref;		/*!> time reference used for UTC <-> timestamp conversion */
+    /*!> local copy of GPS time reference */
+    bool ref_ok = false;        /*!> determine if GPS time reference must be used or not */
+    struct tref local_ref;      /*!> time reference used for UTC <-> timestamp conversion */
 
-	/*!> data buffers */
-	uint8_t buff_up[TX_BUFF_SIZE];	/*!> buffer to compose the upstream packet */
-	int buff_index;
+    /*!> data buffers */
+    uint8_t buff_up[TX_BUFF_SIZE];  /*!> buffer to compose the upstream packet */
+    int buff_index;
 
-	/*!> GPS synchronization variables */
-	struct timespec pkt_utc_time;
-	struct tm *x;				/*!> broken-up UTC time */
+    /*!> GPS synchronization variables */
+    struct timespec pkt_utc_time;
+    struct tm *x;                /*!> broken-up UTC time */
 
-	/*!> variables for identification */
-	char iso_timestamp[24];
-	time_t system_time;
+    /*!> variables for identification */
+    char iso_timestamp[24];
+    time_t system_time;
 
-	uint32_t mote_addr = 0;
-	uint16_t mote_fcnt = 0;
+    uint32_t mote_addr = 0;
+    uint16_t mote_fcnt = 0;
     uint8_t mote_fport = 0;
 
     lgw_log(LOG_INFO, "[INFO~][%s] Starting gwtraf_push_up...\n", serv->info.name);
-	while (!serv->thread.stop_sig) {
-		// wait for data to arrive
-		sem_wait(&serv->thread.sema);
+    while (!serv->thread.stop_sig) {
+        // wait for data to arrive
+        sem_wait(&serv->thread.sema);
 
-        serv_ct_s *serv_ct = lgw_malloc(sizeof(serv_ct_s));
+        serv_ct = lgw_malloc(sizeof(serv_ct_s));
+        if (!serv_ct) {
+            lgw_log(LOG_ERROR, "[ERROR] Failed to allocate memory for serv_ct\n");
+            continue;
+        }
         serv_ct->serv = serv;
 
         nb_pkt = serv_ct->nb_pkt = get_rxpkt(serv_ct);     //only get the first rxpkt of list
 
         if (nb_pkt == 0) {
             lgw_free(serv_ct);
+            serv_ct = NULL;
             continue;
         }
 
         lgw_log(LOG_INFO, "[INFO~][THREAD][%s] Starting...\n", serv->info.name);
 
-		//TODO: is this okay, can time be recruited from the local system if gps is not working?
-		/*!> get a copy of GPS time reference (avoid 1 mutex per packet) */
-		if (GW.gps.gps_enabled == true) {
-			pthread_mutex_lock(&GW.gps.mx_timeref);
-			ref_ok = GW.gps.gps_ref_valid;
-			local_ref = GW.gps.time_reference_gps;
-			pthread_mutex_unlock(&GW.gps.mx_timeref);
-		} else {
-			ref_ok = false;
-		}
+        /*!> get a copy of GPS time reference (avoid 1 mutex per packet) */
+        if (GW.gps.gps_enabled == true) {
+            pthread_mutex_lock(&GW.gps.mx_timeref);
+            ref_ok = GW.gps.gps_ref_valid;
+            local_ref = GW.gps.time_reference_gps;
+            pthread_mutex_unlock(&GW.gps.mx_timeref);
+        } else {
+            ref_ok = false;
+        }
 
         /*!> start of JSON structure */
-        buff_index = 0;			
+        buff_index = 0;
 
         /*!> Make when we are, define the start of the packet array. */
         system_time = time(NULL);
@@ -159,21 +186,21 @@ static void gwtraf_push_up(void* arg) {
             switch (p->status) {
             case STAT_CRC_OK:
                 if (!serv->filter.fwd_valid_pkt) {
-                    continue;	/*!> skip that packet */
+                    continue;    /*!> skip that packet */
                 }
                 break;
             case STAT_CRC_BAD:
                 if (!serv->filter.fwd_error_pkt) {
-                    continue;	/*!> skip that packet */
+                    continue;    /*!> skip that packet */
                 }
                 break;
             case STAT_NO_CRC:
                 if (!serv->filter.fwd_nocrc_pkt) {
-                    continue;	/*!> skip that packet */
+                    continue;    /*!> skip that packet */
                 }
                 break;
             default:
-                continue;		/*!> skip that packet */
+                continue;     /*!> skip that packet */
             }
 
             if (p->size >= 8) {
@@ -203,7 +230,7 @@ static void gwtraf_push_up(void* arg) {
                 buff_index += j;
             } else {
                 lgw_log(LOG_ERROR, "ERROR: [%s-up] failed to add field \"tmst\" to the transmission buffer.\n", serv->info.name);
-                continue;		/*!> skip that packet */
+                continue;    /*!> skip that packet */
                 //exit(EXIT_FAILURE);
             }
 
@@ -214,12 +241,12 @@ static void gwtraf_push_up(void* arg) {
                 if (j == LGW_GPS_SUCCESS) {
                     /*!> split the UNIX timestamp to its calendar components */
                     x = gmtime(&(pkt_utc_time.tv_sec));
-                    j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE - buff_index, ",\"time\":\"%04i-%02i-%02iT%02i:%02i:%02i.%06liZ\"", (x->tm_year) + 1900, (x->tm_mon) + 1, x->tm_mday, x->tm_hour, x->tm_min, x->tm_sec, (pkt_utc_time.tv_nsec) / 1000);	/*!> ISO 8601 format */
+                    j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE - buff_index, ",\"time\":\"%04i-%02i-%02iT%02i:%02i:%02i.%06liZ\"", (x->tm_year) + 1900, (x->tm_mon) + 1, x->tm_mday, x->tm_hour, x->tm_min, x->tm_sec, (pkt_utc_time.tv_nsec) / 1000);    /*!> ISO 8601 format */
                     if (j > 0) {
                         buff_index += j;
                     } else {
                         lgw_log(LOG_ERROR, "ERROR: [%s-up] failed to add field \"time\" to the transmission buffer.\n", serv->info.name);
-                        continue;	/*!> skip that packet */
+                        continue;    /*!> skip that packet */
                         //exit(EXIT_FAILURE);
                     }
                 }
@@ -250,7 +277,7 @@ static void gwtraf_push_up(void* arg) {
                 buff_index += 9;
                 break;
             default:
-                continue;		/*!> skip that packet */
+                continue;     /*!> skip that packet */
             }
 
             /*!> Packet modulation, 13-14 useful chars */
@@ -285,7 +312,7 @@ static void gwtraf_push_up(void* arg) {
                     buff_index += 13;
                     break;
                 default:
-                    continue;	/*!> skip that packet */
+                    continue;     /*!> skip that packet */
                 }
                 switch (p->bandwidth) {
                 case BW_125KHZ:
@@ -301,7 +328,7 @@ static void gwtraf_push_up(void* arg) {
                     buff_index += 6;
                     break;
                 default:
-                    continue;	/*!> skip that packet */
+                    continue;     /*!> skip that packet */
                 }
 
                 /*!> Packet ECC coding rate, 11-13 useful chars */
@@ -322,12 +349,12 @@ static void gwtraf_push_up(void* arg) {
                     memcpy((void *)(buff_up + buff_index), (void *)",\"codr\":\"4/8\"", 13);
                     buff_index += 13;
                     break;
-                case 0:		/*!> treat the CR0 case (mostly false sync) */
+                case 0:         /*!> treat the CR0 case (mostly false sync) */
                     memcpy((void *)(buff_up + buff_index), (void *)",\"codr\":\"OFF\"", 13);
                     buff_index += 13;
                     break;
                 default:
-                    continue;	/*!> skip that packet */
+                    continue;     /*!> skip that packet */
                 }
 
                 /*!> Lora SNR, 11-13 useful chars */
@@ -335,7 +362,7 @@ static void gwtraf_push_up(void* arg) {
                 if (j > 0) {
                     buff_index += j;
                 } else {
-                    continue;	/*!> skip that packet */
+                    continue;     /*!> skip that packet */
                 }
             } else if (p->modulation == MOD_FSK) {
                 memcpy((void *)(buff_up + buff_index), (void *)",\"modu\":\"FSK\"", 13);
@@ -346,10 +373,10 @@ static void gwtraf_push_up(void* arg) {
                 if (j > 0) {
                     buff_index += j;
                 } else {
-                    continue;	/*!> skip that packet */
+                    continue;     /*!> skip that packet */
                 }
             } else {
-                continue;		/*!> skip that packet */
+                continue;         /*!> skip that packet */
             }
 
             /*!> Packet RSSI, payload size, 18-23 useful chars */

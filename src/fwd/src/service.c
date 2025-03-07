@@ -27,13 +27,16 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
 
-#include <sys/socket.h>			/* socket specific definitions */
-#include <netinet/in.h>			/* INET constants and stuff */
-#include <arpa/inet.h>			/* IP address conversion stuff */
-#include <netdb.h>				/* gai_strerror */
-
-#include <errno.h>				
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #include "fwd.h"
 #include "db.h"
@@ -43,68 +46,76 @@
 #include "relay_service.h"
 #include "delay_service.h"
 #include "mqtt_service.h"
+#include "logger.h"
 
 DECLARE_GW;
 
 int init_sock(const char *addr, const char *port, const void *timeout, int size) {
-    int i;
-    int sockfd;
-    /* network socket creation */
-    struct addrinfo hints;
-    struct addrinfo *result;    /* store result of getaddrinfo */
-    struct addrinfo *q;         /* pointer to move into *result data */
+    if (!addr || !port || !timeout || size <= 0) {
+        lgw_log(LOG_ERROR, "%s[NETWORK] Invalid parameters in init_sock\n", ERRMSG);
+        return -1;
+    }
 
-    char host_name[64];
-    char port_name[64];
+    int ret = -1;
+    int sockfd = -1;
+
+    struct addrinfo hints;
+    struct addrinfo *result = NULL;
+    struct addrinfo *q = NULL;
 
     /* prepare hints to open network sockets */
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;	/* WA: Forcing IPv4 as AF_UNSPEC makes connection on localhost to fail */
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;    /* Force IPv4 */
     hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_ADDRCONFIG; /* Only return addresses that this host can use */
 
-    /* look for server address w/ upstream port */
-    i = getaddrinfo(addr, port, &hints, &result);
-    if (i != 0) {
-        //lgw_log(LOG_ERROR, "%s[NETWORK] getaddrinfo on address %s (PORT %s) returned %s\n", ERRMSG, addr, port, gai_strerror(i));
+    /* DNS lookup */
+    ret = getaddrinfo(addr, port, &hints, &result);
+    if (ret != 0) {
+        lgw_log(LOG_ERROR, "%s[NETWORK] getaddrinfo failed: %s\n", ERRMSG, gai_strerror(ret));
+        if (result != NULL) {
+            freeaddrinfo(result);
+        }
         return -1;
     }
 
-    /* try to open socket for upstream traffic */
+    /* try each address until we successfully connect */
     for (q = result; q != NULL; q = q->ai_next) {
         sockfd = socket(q->ai_family, q->ai_socktype, q->ai_protocol);
-        if (sockfd == -1)
-            continue;       /* try next field */
-        else
-            break;          /* success, get out of loop */
-    }
-
-    if (q == NULL) {
-        lgw_log(LOG_ERROR, "%s[NETWORK] failed to open socket to any of server %s addresses (port %s)\n", ERRMSG, addr, port);
-        i = 1;
-        for (q = result; q != NULL; q = q->ai_next) {
-            getnameinfo(q->ai_addr, q->ai_addrlen, host_name, sizeof host_name, port_name, sizeof port_name, NI_NUMERICHOST);
-            ++i;
+        if (sockfd < 0) {
+            continue;
         }
-        Close(sockfd);
-        freeaddrinfo(result);
 
-        return -1;
-    }
+        /* set socket options */
+        int yes = 1;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
+            lgw_log(LOG_WARNING, "%s[NETWORK] Failed to set SO_REUSEADDR: %s\n", WARNMSG, strerror(errno));
+        }
 
-    /* connect so we can send/receive packet with the server only */
-    i = connect(sockfd, q->ai_addr, q->ai_addrlen);
-    if (i != 0) {
-        lgw_log(LOG_ERROR, "%s[NETWORK] connecting... %s\n", WARNMSG, strerror(errno));
+        /* set receive timeout */
+        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size) < 0) {
+            lgw_log(LOG_ERROR, "%s[NETWORK] Failed to set SO_RCVTIMEO: %s\n", ERRMSG, strerror(errno));
+            Close(sockfd);
+            freeaddrinfo(result);
+            return -1;
+        }
+
+        /* connect to server */
+        if (connect(sockfd, q->ai_addr, q->ai_addrlen) == 0) {
+            /* Success */
+            break;
+        }
+
+        /* Connect failed, close this socket and try next address */
         Close(sockfd);
-        freeaddrinfo(result);
-        return -1;
+        sockfd = -1;
     }
 
     freeaddrinfo(result);
 
-    if ((setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, size)) != 0) {
-        Close(sockfd);
-        lgw_log(LOG_ERROR, "%s[NETWORK] setsockopt returned %s\n", ERRMSG, strerror(errno));
+    if (sockfd < 0) {
+        lgw_log(LOG_ERROR, "%s[NETWORK] Could not connect to %s:%s: %s\n", 
+                ERRMSG, addr, port, strerror(errno));
         return -1;
     }
 

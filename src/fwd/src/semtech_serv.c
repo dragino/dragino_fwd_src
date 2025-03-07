@@ -61,8 +61,8 @@ static enum jit_error_e lbt_enqueue(struct lgw_pkt_tx_s* packet, uint32_t time_u
 
 int semtech_start(serv_s* serv) {
 
-    serv->net->sock_up = init_sock((char *)&serv->net->addr, (char *)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
-    serv->net->sock_down = init_sock((char *)&serv->net->addr, (char *)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
+    serv->net->sock_up = init_sock(serv->net->addr, serv->net->port_up, &serv->net->push_timeout_half, sizeof(struct timeval));
+    serv->net->sock_down = init_sock(serv->net->addr, serv->net->port_down, &serv->net->pull_timeout, sizeof(struct timeval));
 
     if (lgw_pthread_create_background(&serv->thread.t_up, NULL, (void *(*)(void *))semtech_push_up, serv)) {
         lgw_log(LOG_WARNING, "%s[THREAD][%s] Can't create push up pthread.\n", WARNMSG, serv->info.name);
@@ -175,7 +175,7 @@ static void thread_push_up(void* arg) {
     buff_up[2] = token_l;
     buff_index = 12; /*!> 12-byte header */
     /*!> start of JSON structure */
-    memcpy((void *)(buff_up + buff_index), (void *)"{\"rxpk\":[", 9);
+    memcpy((void *)(buff_up + buff_index), (void *)"{\"rxpk\":[", 10);
     buff_index += 9;
 
     /*!> serialize Lora packets metadata and payload */
@@ -615,7 +615,7 @@ static void thread_push_up(void* arg) {
 
     /*!> send datagram to server */
     if (serv->net->sock_up == -1)    
-        serv->net->sock_up = init_sock((char *)&serv->net->addr, (char *)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
+        serv->net->sock_up = init_sock(serv->net->addr, serv->net->port_up, &serv->net->push_timeout_half, sizeof(struct timeval));
 
     if (serv->net->sock_up == -1) {    
         lgw_log(LOG_PKT, "%s[PKTS][%s-UP] send blocking ... Disconnect!\n", ERRMSG, serv->info.name); 
@@ -880,8 +880,8 @@ static void semtech_pull_down(void* arg) {
             Close(serv->net->sock_down);
             Close(serv->net->sock_up);
 
-            serv->net->sock_down = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
-            serv->net->sock_up = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_down, (void*)&serv->net->pull_timeout, sizeof(struct timeval));
+            serv->net->sock_down = init_sock(serv->net->addr, serv->net->port_down, &serv->net->pull_timeout, sizeof(struct timeval));
+            serv->net->sock_up = init_sock(serv->net->addr, serv->net->port_down, &serv->net->pull_timeout, sizeof(struct timeval));
 
             pthread_mutex_unlock(&mx_pthread_count);
         }

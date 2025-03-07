@@ -248,7 +248,7 @@ static void fill_rx(struct lgw_pkt_rx_s *p, uint8_t *payload, uint32_t us) {
         p->status = STAT_CRC_OK;
 
     str = json_object_get_string(virt_obj, "data");
-    if (str = NULL) {
+    if (str == NULL) {
         json_value_free(root_val);
         goto NORMAL;
     } else
@@ -311,6 +311,7 @@ bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwi
 	i = getaddrinfo(ghost_addr, ghost_port, &addresses, &result);
 	if (i != 0) {
 		lgw_log(LOG_ERROR, "[ERROR~][GHOST] getaddrinfo on address %s (PORT %s) returned %s\n", ghost_addr, ghost_port, gai_strerror(i));
+	    freeaddrinfo(result);
         return false;
 	}
 
@@ -338,6 +339,7 @@ bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwi
 			lgw_log(LOG_INFO, "[INFO~][GHOST] result %i host:%s service:%s\n", i, host_name, port_name);
 			++i;
 		}
+	    freeaddrinfo(result);
         return false;
 	}
 
@@ -359,13 +361,25 @@ bool ghost_start(const char *ghost_addr, const char *ghost_port, const char *gwi
 
 void ghost_stop(void) {
     cnt_ghost = 0;
-	ghost_run = false;			        /*!> terminate the loop. */
-	pthread_cancel(thrid_ghost);	    /*!> don't wait for downstream thread (is this okay??) */
-	shutdown(sock_ghost, SHUT_RDWR);	/*!> close the socket. */
+    ghost_run = false;
+    
+    if (thrid_ghost) {
+        pthread_cancel(thrid_ghost);
+        pthread_join(thrid_ghost, NULL);
+    }
+    
+    if (sock_ghost >= 0) {
+        shutdown(sock_ghost, SHUT_RDWR);
+        close(sock_ghost);
+    }
 }
 
 /*!> Call this to pull data from the receive buffer for ghost nodes.. */
 int ghost_get(int max_pkt, struct lgw_pkt_rx_s *pkt_data) {	/*!> Calculate the number of available packets */
+    if (!pkt_data) {
+        return 0;
+    }   
+
     int c = cnt_ghost;
     int s = 0;
     if (cnt_ghost == 0) {

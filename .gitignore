@@ -6,3 +6,5 @@ update-version
 src/*-bak
 src/**/*.bak
 src/**/*.swp
+*vscode*
+src/cscope*
