@@ -431,12 +431,12 @@ void sys_ini () {
         LOG(MOD_SYS|ERROR, "Can't initiate sqlite3 database, EXIT!");
         exit(EXIT_NOP);
     }else{
-		LOG(MOD_SYS|INFO, "DB[%s] is inited.", LGW_DB_FILE);
+        LOG(MOD_SYS|INFO, "DB[%s] is inited.", LGW_DB_FILE);
     }
 
     if(parse_basic_station_json(BASIC_STATION_CONF)){
-		LOG(MOD_SYS|ERROR, "Parse station conf json failed, EXIT!");
-		exit(EXIT_NOP);
+        LOG(MOD_SYS|ERROR, "Parse station conf json failed, EXIT!");
+        exit(EXIT_NOP);
     }
     
     int seed;

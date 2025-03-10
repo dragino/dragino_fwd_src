@@ -121,9 +121,9 @@ bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport, co
     snprintf(addr_key, sizeof(addr_key), "%s/devaddr/%08X", serv->info.name, addr);
     snprintf(fport_key, sizeof(fport_key), "%s/fport/%u", serv->info.name, fport);
 #ifdef BIGENDIAN
-    nwkid = (addr >> 25) & 0x7F;   /* Devaddr Format:  31..25(NwkID)  24..0(NwkAddr) */
+        nwkid = addr & 0x7F;
 #else
-    nwkid = (addr) & 0x7F;
+        nwkid = (addr >> 25) & 0x7F;   /* Devaddr Format:  31..25(NwkID)  24..0(NwkAddr) */
 #endif
     snprintf(nwkid_key, sizeof(nwkid_key), "%s/nwkid/%02X", serv->info.name, nwkid);
     snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/%s", serv->info.name, deveui);
