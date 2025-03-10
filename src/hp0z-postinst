@@ -4,33 +4,6 @@ VER="2022-05-26"
 uci set gateway.general.fwd_version="$VER"
 uci commit gateway
 
-station=$(uci -q get gateway.station)
-fport_filter_level=$(uci -q get gateway.station.fport_filter_level)
-devaddr_filter_level=$(uci -q get gateway.station.devaddr_filter_level)
-nwkid_filter_level=$(uci  -q get gateway.station.nwkid_filter_level)
-deveui_filter_level=$(uci -q get gateway.station.deveui_filter_level)
-
-if [[ -z $station ]]; then
-	uci set gateway.station=settings
-fi
-
-if [[ -z $fport_filter_level ]]; then
-	uci add_list gateway.station.fport_filter_level=0
-fi
-
-if [[ -z $devaddr_filter_level ]]; then
-	uci add_list gateway.station.devaddr_filter_level=0
-fi
-
-if [[ -z $nwkid_filter_level ]]; then
-	uci add_list gateway.station.nwkid_filter_level=0
-fi
-
-if [[ -z $deveui_filter_level ]]; then
-	uci add_list gateway.station.deveui_filter_level=0
-fi
-uci commit gateway
-
 /usr/local/dragino/generate-config.sh start > /dev/null 2>&1
 /usr/local/dragino/generate-basicstation-config.sh start > /dev/null 2>&1
 systemctl enable draginofwd
