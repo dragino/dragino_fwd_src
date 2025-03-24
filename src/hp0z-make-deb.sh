@@ -98,7 +98,7 @@ case "$board" in
         install -m 644 config/hp0c-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 tools/reset_lgw-hp0c.sh pi_pkg/usr/bin/reset_lgw.sh
         ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/$FWDTarget
-	ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
+        ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
         ;;
     "hp0d")
         cp -f hp0z-postinst DEBIAN/postinst
@@ -115,7 +115,7 @@ case "$board" in
         cp -f config/hp0d-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 tools/reset_lgw-hp0d.sh pi_pkg/usr/bin/reset_lgw.sh
         ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/$FWDTarget
-	ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
+        ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
         ;;
     "rasp301")
         cp -f rasp-postinst DEBIAN/postinst
@@ -127,7 +127,7 @@ case "$board" in
         install -m 755 build_station_sx1301/build-arm-dragino/bin/station_sx1301 pi_pkg/usr/bin
         install -m 755 tools/reset_lgw-hp0d.sh pi_pkg/usr/bin/reset_lgw.sh
         ln -sf /usr/bin/fwd_sx1301 pi_pkg/usr/bin/$FWDTarget
-	ln -sf /usr/bin/station_sx1301 pi_pkg/usr/bin/$STATIONTarget
+        ln -sf /usr/bin/station_sx1301 pi_pkg/usr/bin/$STATIONTarget
         ;;
     "rasp302")
         cp -f rasp-postinst DEBIAN/postinst
@@ -143,7 +143,7 @@ case "$board" in
         cp -f config/hp0d-global_conf.json pi_pkg/etc/lora/global_conf.json
         install -m 755 tools/reset_lgw-hp0d.sh pi_pkg/usr/bin/reset_lgw.sh
         ln -sf /usr/bin/fwd_sx1302 pi_pkg/usr/bin/$FWDTarget
-	ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
+        ln -sf /usr/bin/station_sx1302 pi_pkg/usr/bin/$STATIONTarget
         ;;
     *)
         cp -f rasp-postinst DEBIAN/postinst
