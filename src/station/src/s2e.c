@@ -59,11 +59,9 @@ static bool basic_station_filter(StationFilter_t *pBSFilter, LoraMessage_t *Lora
 
     snprintf(addr_key, sizeof(addr_key), "%s/devaddr/%08X", pBSFilter->server_name, LoraMessage->devAddr);
     snprintf(fport_key, sizeof(fport_key), "%s/fport/%u", pBSFilter->server_name, LoraMessage->fPort);
-#ifdef BIGENDIAN
-    nwkid = (LoraMessage->devAddr) & 0x7F;
-#else
+
     nwkid = (LoraMessage->devAddr >> 25) & 0x7F;   /* Devaddr Format:  31..25(NwkID)  24..0(NwkAddr) */
-#endif
+
     snprintf(nwkid_key, sizeof(nwkid_key), "%s/nwkid/%02X", pBSFilter->server_name, nwkid);
 
     char deveui_str[17]={0};

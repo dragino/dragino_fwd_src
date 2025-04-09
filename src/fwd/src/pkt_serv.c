@@ -407,11 +407,11 @@ static void thread_pkt_deal_up(void* arg) {
     serv_s* serv = serv_ct->serv;
     //pthread_t tid = pthread_self();
     
-	int i, j;					/*!> loop variables */
+    int i, j;                   /*!> loop variables */
 
     int fsize = 0;              /* FRMpayload size */
 
-	struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
+    struct lgw_pkt_rx_s *p;	/*!> pointer on a RX packet */
 
     enum jit_error_e jit_result = JIT_ERROR_OK;
     
@@ -500,7 +500,7 @@ static void thread_pkt_deal_up(void* arg) {
             continue;
 
         if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || 
-			serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER) {
+            serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER) {
             if (pkt_basic_filter(serv, macmsg.FHDR.DevAddr, macmsg.FPort, macmsg.DevEUI)) {
                 lgw_log(LOG_DEBUG, "%s[%s-UP] Drop a packet has fport(%u) of %08X.\n", DEBUGMSG, serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
                 continue;
@@ -549,7 +549,7 @@ static void thread_pkt_deal_up(void* arg) {
 
             if (GW.cfg.mac_decode) {
                 uint32_t fcnt, mic;
-				bool fcnt_valid = false;
+                bool fcnt_valid = false;
                 lgw_memcpy(payload_encrypt, p->payload + 9 + macmsg.FHDR.FCtrl.Bits.FOptsLen, fsize);
                 for (j = 0; j < GW.cfg.fcnt_gap; j++) {   
                     fcnt = macmsg.FHDR.FCnt | (j * 0x10000);
