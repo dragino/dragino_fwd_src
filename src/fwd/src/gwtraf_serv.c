@@ -191,7 +191,11 @@ static void gwtraf_push_up(void* arg) {
             }
 
             if (mote_addr != 0 && mote_fport != 0) {
-                if (pkt_basic_filter(serv, mote_addr, mote_fport, "hello_world")) {
+                FilterParams_t FP = {0};
+                memset(&FP, 0x00, sizeof(FilterParams_t));
+                FP.addr = mote_addr;
+                FP.fport = mote_fport;
+                if (pkt_basic_filter(serv, &FP)) {
                     lgw_log(LOG_INFO, "[INFO~][%s-up] Drop a packet.\n", serv->info.name);
                     continue;
                 }

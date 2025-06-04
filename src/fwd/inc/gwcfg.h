@@ -161,6 +161,7 @@ typedef struct _server {
         filter_e devaddr;           /*!> 和fport相同 */
         filter_e nwkid;             /*!> 和fport相同 */
         filter_e deveui;             /*!> 和fport相同 */
+        filter_e joineui;             /*!> 和fport相同 */
         bool fwd_valid_pkt;         /*!> packets with PAYLOAD CRC OK are forwarded */
         bool fwd_error_pkt;         /*!> packets with PAYLOAD CRC ERROR are NOT forwarded */
         bool fwd_nocrc_pkt;         /*!> packets with NO PAYLOAD CRC are NOT forwarded */

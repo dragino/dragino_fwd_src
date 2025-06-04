@@ -38,6 +38,7 @@
 #include <sqlite3.h>
 
 #include "db.h"
+#include "rt.h"
 #include "utilities.h"
 #include "lgwmm.h"
 #include "logger.h"
@@ -100,6 +101,7 @@ DEFINE_SQL_STATEMENT(deltree_all_stmt, "DELETE FROM gwdb;")
 DEFINE_SQL_STATEMENT(gettree_stmt, "SELECT key, value FROM gwdb WHERE key || '/' LIKE ? || '/' || '%' ORDER BY key;")
 DEFINE_SQL_STATEMENT(gettree_all_stmt, "SELECT key, value FROM gwdb ORDER BY key;")
 DEFINE_SQL_STATEMENT(showkey_stmt, "SELECT key, value FROM gwdb WHERE key LIKE '%' || '/' || ? ORDER BY key;")
+DEFINE_SQL_STATEMENT(showkey_stmt_ex, "SELECT key FROM gwdb WHERE key LIKE '%' || '/' || ? || '%' ORDER BY key;")
 DEFINE_SQL_STATEMENT(gettree_prefix_stmt, "SELECT key, value FROM gwdb WHERE key > ?1 AND key <= ?1 || X'ffff';")
 DEFINE_SQL_STATEMENT(put_pkt_stmt, "INSERT INTO livepkts (pdtype, freq, dr, cnt, devaddr, content, payload) VALUES (?, ?, ?, ?, ?, ?, ?);")
 //DEFINE_SQL_STATEMENT(import_stmt, "ATTACH DATABASE '/etc/lora/devskey' AS a; SELECT devaddr, appskey, nwkskey FROM a.abpdevs;");
@@ -156,6 +158,7 @@ static void clean_statements(void)
 	clean_stmt(&gettree_all_stmt, gettree_all_stmt_sql);
 	clean_stmt(&gettree_prefix_stmt, gettree_prefix_stmt_sql);
 	clean_stmt(&showkey_stmt, showkey_stmt_sql);
+	clean_stmt(&showkey_stmt_ex, showkey_stmt_ex_sql);
 	clean_stmt(&put_stmt, put_stmt_sql);
 	clean_stmt(&put_pkt_stmt, put_pkt_stmt_sql);
 }
@@ -172,6 +175,7 @@ static int init_statements(void)
 	|| init_stmt(&gettree_all_stmt, gettree_all_stmt_sql, sizeof(gettree_all_stmt_sql))
 	|| init_stmt(&gettree_prefix_stmt, gettree_prefix_stmt_sql, sizeof(gettree_prefix_stmt_sql))
 	|| init_stmt(&showkey_stmt, showkey_stmt_sql, sizeof(showkey_stmt_sql))
+    || init_stmt(&showkey_stmt_ex, showkey_stmt_ex_sql, sizeof(showkey_stmt_ex_sql))
 	|| init_stmt(&put_stmt, put_stmt_sql, sizeof(put_stmt_sql))
 	|| init_stmt(&put_pkt_stmt, put_pkt_stmt_sql, sizeof(put_pkt_stmt_sql));
 }
@@ -392,6 +396,57 @@ bool lgw_db_key_exist(const char *key) {
     }
 
     sqlite3_reset(showkey_stmt);
+    pthread_mutex_unlock(&mx_dblock);
+    return false;
+}
+
+int get_key(const char *src, char *dest)
+{
+    int i = 0, j = 0, len = 0;
+    len = strlen(src);
+    i = len-1;
+    while(i >= 0 && src[i] != '/')
+        i--;
+    if (i >= 0) {
+        i++;
+        for (j=0;i<len;i++) {
+            if (('0' <= src[i] && src[i] <= '9') ||
+                ('A' <= src[i] && src[i] <= 'F') ||
+                ('a' <= src[i] && src[i] <= 'f')) {
+                dest[j++] = src[i];
+            }
+        }
+        dest[j]='\0';
+        LOG(MOD_S2E|INFO, "[DB]filter wildcard:%s!", dest);
+        return 0;
+    }
+
+    return 1;
+}
+
+bool lgw_db_key_exist_ex(const char *prefix, const char *key) {
+    pthread_mutex_lock(&mx_dblock);
+    if (!lgw_strlen_zero(key) && (sqlite3_bind_text(showkey_stmt_ex, 1, prefix, -1, SQLITE_STATIC) != SQLITE_OK)) {
+        MSG("%s[DB] Could bind %s to stmt: %s\n", WARNMSG, LGW_DB_FILE, sqlite3_errmsg(GWDB));
+        sqlite3_reset(showkey_stmt_ex);
+        pthread_mutex_unlock(&mx_dblock);
+        return false;
+    }
+
+    char dest[32];
+    while (sqlite3_step(showkey_stmt_ex) == SQLITE_ROW) {
+        const char *key_src = sqlite3_column_text(showkey_stmt_ex, 0);
+        if (key_src) {
+            memset(dest, 0x00, sizeof(dest));
+            if (!get_key(key_src, dest) && strstr(key, dest)) {
+                sqlite3_reset(showkey_stmt_ex);
+                pthread_mutex_unlock(&mx_dblock);
+                return true;
+            }
+        }
+    }
+
+    sqlite3_reset(showkey_stmt_ex);
     pthread_mutex_unlock(&mx_dblock);
     return false;
 }
@@ -671,9 +726,7 @@ int import_devskey(void *notuse, int argc, char **value, char **name)
     char sql[128] = {'\0'};
 
     snprintf(sql, sizeof(sql), "INSERT OR REPLACE INTO gwdb VALUES ('/devinfo/%s/%s', '%s')", value[0], name[1], value[1]);
-	db_exec_sql(sql, NULL, NULL);
-    snprintf(sql, sizeof(sql), "INSERT OR REPLACE INTO gwdb VALUES ('/devinfo/%s/%s', '%s')", value[0], name[2], value[2]);
-	db_exec_sql(sql, NULL, NULL);
+    db_exec_sql(sql, NULL, NULL);
 
     return 0;
 }

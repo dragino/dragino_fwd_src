@@ -249,8 +249,15 @@ static void thread_push_up(void* arg) {
 
         if (macmsg.BufSize != 0) {
             if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || 
-                serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER) {
-                if (pkt_basic_filter(serv, macmsg.FHDR.DevAddr, macmsg.FPort, macmsg.DevEUI)) {
+                serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER ||
+                serv->filter.joineui != NOFILTER) {
+                FilterParams_t FP = {0};
+                memset(&FP, 0x00, sizeof(FilterParams_t));
+                FP.addr = macmsg.FHDR.DevAddr;
+                FP.fport = macmsg.FPort;
+                memcpy(FP.deveui, macmsg.DevEUI, sizeof(macmsg.DevEUI));
+                memcpy(FP.joineui, macmsg.AppEUI, sizeof(macmsg.AppEUI));
+                if (pkt_basic_filter(serv, &FP)) {
                     lgw_log(LOG_INFO, "%s[PKTS][%s-UP] Filter packet has fport(%u) of %08X.\n", INFOMSG, serv->info.name, macmsg.FPort, macmsg.FHDR.DevAddr);
                     pthread_mutex_unlock(&serv->report->mx_report);
                     continue;

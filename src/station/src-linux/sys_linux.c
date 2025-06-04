@@ -1294,6 +1294,19 @@ static int parse_basic_station_json(const char *conf_file)
             gBSFilter.filter.deveui=NOFILTER;
         LOG(MOD_SYS|INFO, "[SETTING] packets received with a deveui filter, level(%d)!", gBSFilter.filter.deveui);
     }
+
+    JsonV = json_object_get_value(stationObj, "joineui_filter");
+    if(JsonV != NULL){
+        val = json_value_get_number(JsonV);
+        if( val == 1 )
+            gBSFilter.filter.joineui=INCLUDE;
+        else if( val == 2 )
+            gBSFilter.filter.joineui=EXCLUDE;
+        else
+            gBSFilter.filter.joineui=NOFILTER;
+        LOG(MOD_SYS|INFO, "[SETTING] packets received with a joineui filter, level(%d)!", gBSFilter.filter.joineui);
+    }
+
     json_value_free(ConfRoot);
 
     LOG(MOD_SYS|INFO, "[SETTING] Parse basic station conf_json:[%s] finished.", conf_file);

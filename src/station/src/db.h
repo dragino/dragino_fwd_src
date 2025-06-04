@@ -48,6 +48,9 @@ int lgw_db_init(void);
 /*! \brief find key value specified by family/key */
 bool lgw_db_key_exist(const char *key);
 
+/*! \brief find key specified by family, only for deveui and appeui */
+bool lgw_db_key_exist_ex(const char *prefix, const char *key);
+
 /*! \brief Get key value specified by family/key */
 int lgw_db_get(const char *family, const char *key, char *value, int valuelen);
 
