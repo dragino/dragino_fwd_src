@@ -129,9 +129,10 @@ bool pkt_basic_filter(serv_s* serv, FilterParams_t *FP) {
     snprintf(appeui_key, sizeof(appeui_key), "%s/joineui/", serv->info.name);
     snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/", serv->info.name);
 
-    lgw_log(LOG_INFO, "%s[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, deveui-lv=%d,"
+    lgw_log(LOG_INFO, "%s[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, joineui-lv=%d, deveui-lv=%d, "
                       "addr_key=%s, fport_key=%s, nwkid_key=%s, appeui_key=%s, deveui_key=%s\n", INFOMSG, 
-                        serv->info.name, serv->filter.fport, serv->filter.devaddr, serv->filter.nwkid, serv->filter.deveui, 
+                        serv->info.name, serv->filter.fport, serv->filter.devaddr, serv->filter.nwkid, 
+                        serv->filter.joineui, serv->filter.deveui,
                         addr_key, fport_key, nwkid_key, appeui_key, deveui_key);
 
     switch (serv->filter.fport) {

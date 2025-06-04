@@ -68,9 +68,10 @@ static bool basic_station_filter(StationFilter_t *pBSFilter, LoraParam_t *pLoraP
     snprintf(deveui_key, sizeof(deveui_key), "%s/deveui/", pBSFilter->server_name);
     snprintf(appeui_key, sizeof(appeui_key), "%s/joineui/", pBSFilter->server_name);
 
-    LOG(MOD_S2E|INFO, "[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, deveui-lv=%d, "
-                        "addr_key=%s, fport_key=%s, nwkid_key=%s, appeui_key=%s, deveui_key=%s\n", 
-                        pBSFilter->server_name, pBSFilter->filter.fport, pBSFilter->filter.devaddr, pBSFilter->filter.nwkid, pBSFilter->filter.deveui, 
+    LOG(MOD_S2E|INFO, "[%s-filter] fport-lv=%d, addr-lv=%d, nwkid-lv=%d, joineui-lv=%d, deveui-lv=%d, "
+                      "addr_key=%s, fport_key=%s, nwkid_key=%s, appeui_key=%s, deveui_key=%s\n", 
+                        pBSFilter->server_name, pBSFilter->filter.fport, pBSFilter->filter.devaddr, 
+                        pBSFilter->filter.nwkid, pBSFilter->filter.joineui, pBSFilter->filter.deveui,
                         addr_key, fport_key, nwkid_key, appeui_key, deveui_key);
     
     switch (pBSFilter->filter.fport) {
