@@ -1882,6 +1882,7 @@ static int parse_gateway_configuration(const char* conf_file) {
             serv_entry->filter.devaddr = NOFILTER;
             serv_entry->filter.nwkid = NOFILTER;
             serv_entry->filter.deveui = NOFILTER;
+            serv_entry->filter.joineui = NOFILTER;
 
             val = json_object_get_value(serv_obj, "forward_crc_valid");
             if (val != NULL) {
@@ -1953,6 +1954,18 @@ static int parse_gateway_configuration(const char* conf_file) {
                 else
                     serv_entry->filter.deveui = NOFILTER;
                 lgw_log(LOG_INFO, "[INFO~][SETTING][%s] packets received with a deveui filter, level(%d)\n", serv_entry->info.name, serv_entry->filter.deveui);
+            }
+
+            val = json_object_get_value(serv_obj, "joineui_filter");
+            if (val != NULL) {
+                try = (uint8_t)json_value_get_number(val);
+                if (try == 1)
+                    serv_entry->filter.joineui = INCLUDE;
+                else if (try == 2)
+                    serv_entry->filter.joineui = EXCLUDE;
+                else
+                    serv_entry->filter.joineui = NOFILTER;
+                lgw_log(LOG_INFO, "[INFO~][SETTING][%s] packets received with a joineui filter, level(%d)\n", serv_entry->info.name, serv_entry->filter.joineui);
             }
 
             LGW_LIST_INSERT_TAIL(&GW.serv_list, serv_entry, list);

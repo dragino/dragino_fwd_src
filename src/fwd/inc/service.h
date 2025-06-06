@@ -59,7 +59,14 @@ int init_sock(const char* addr, const char* port, const void* timeout, int size)
  * \param fport MACfport过滤
  * \ret false过滤包， true不过滤
  */
-bool pkt_basic_filter(serv_s* serv, const uint32_t addr, const uint8_t fport, const char* deveui);
+typedef struct FilterParams {
+    uint32_t fport;
+    uint32_t addr;
+    char deveui[32];
+    char joineui[32];
+} FilterParams_t;
+
+bool pkt_basic_filter(serv_s* serv, FilterParams_t *FP);
 
 /*!
  */

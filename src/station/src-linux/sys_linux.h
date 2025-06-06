@@ -37,7 +37,7 @@
 #define FATAL_NOLOGGING  32
 #define FATAL_MAX        40
 
-#define BASIC_STATION_CONF	"/etc/station/local_conf.json"
+#define BASIC_STATION_CONF  "/etc/station/local_conf.json"
 
 struct logfile {
     str_t path;
@@ -58,6 +58,7 @@ typedef struct stStationFilter{
 	    filter_e devaddr;           /*!> 和fport相同 */
 	    filter_e nwkid;             /*!> 和fport相同 */
 	    filter_e deveui;            /*!> 和fport相同 */
+	    filter_e joineui;            /*!> 和fport相同 */
 	}filter;
 }StationFilter_t;
 

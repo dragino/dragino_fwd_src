@@ -85,7 +85,7 @@ uL_t* s2e_joineuiFilter;
 u4_t  s2e_netidFilter[4] = { 0xffFFffFF, 0xffFFffFF, 0xffFFffFF, 0xffFFffFF };
 
 
-int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf, LoraMessage_t *pLoraMsg) {
+int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf, LoraParam_t *pLoraParam) {
     if( len == 0 ) {
     badframe:
         LOG(MOD_S2E|DEBUG, "Not a LoRaWAN frame: %16.4H", len, frame);
@@ -140,11 +140,12 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
         xprintf(lbuf, "%s MHdr=%02X %s=%:E %s=%:E DevNonce=%d MIC=%d",
                 msgtype, mhdr, rt_joineui, joineui, rt_deveui, deveui, devnonce, mic);
 
-        if(pLoraMsg){
-            pLoraMsg->deveui=deveui;
-            pLoraMsg->FrameType=ftype;
-            strncpy(pLoraMsg->typeStr, msgtype, strlen(msgtype));
-            pLoraMsg->typeStr[strlen(msgtype)]='\0';
+        if(pLoraParam){
+            pLoraParam->joineui=joineui;
+            pLoraParam->deveui=deveui;
+            pLoraParam->FrameType=ftype;
+            strncpy(pLoraParam->typeStr, msgtype, strlen(msgtype));
+            pLoraParam->typeStr[strlen(msgtype)]='\0';
         }
         
         return 1;
@@ -168,12 +169,12 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
     s4_t  mic   = (s4_t)rt_rlsbf4(&frame[len-4]);
     str_t dir   = ftype==FRMTYPE_DAUP || ftype==FRMTYPE_DCUP ? "updf" : "dndf";
 
-    if(pLoraMsg){
-        pLoraMsg->FrameType=ftype;
-        pLoraMsg->fPort=frame[portoff];
-        pLoraMsg->devAddr=(s4_t)devaddr;
-        strncpy(pLoraMsg->typeStr, dir, strlen(dir));
-        pLoraMsg->typeStr[strlen(dir)]='\0';
+    if(pLoraParam){
+        pLoraParam->FrameType=ftype;
+        pLoraParam->fPort=frame[portoff];
+        pLoraParam->devAddr=(s4_t)devaddr;
+        strncpy(pLoraParam->typeStr, dir, strlen(dir));
+        pLoraParam->typeStr[strlen(dir)]='\0';
     }
     uj_encKVn(buf,
               "msgtype",   's', dir,
