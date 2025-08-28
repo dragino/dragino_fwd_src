@@ -552,7 +552,12 @@ static void thread_push_up(void* arg) {
         /*!> Packet base64-encoded payload, 14-350 useful chars */
         memcpy((void *)(buff_up + buff_index), (void *)",\"data\":\"", 9);
         buff_index += 9;
-        j = bin_to_b64(p->payload, p->size, (char *)(buff_up + buff_index), 341); /*!> 255 bytes = 340 chars in b64 + null char */
+        {
+            int max_out = TX_BUFF_SIZE - buff_index - 2; /* leave room for closing quotes/brackets */
+            if (max_out < 0) max_out = 0;
+            int max_b64_len = (max_out < 341) ? max_out : 341; /* 255 bytes -> 340 chars + NUL */
+            j = bin_to_b64(p->payload, p->size, (char *)(buff_up + buff_index), max_b64_len);
+        }
         if (j>=0) {
             buff_index += j;
         } else {
@@ -1356,9 +1361,20 @@ static void semtech_pull_down(void* arg) {
             }
             
             if (GW.cfg.td_enabled) {
-                snprintf((char*)(txpkt.payload + i),  sizeof(txpkt.payload) - i, "%s", GW.cfg.time_diff);
-                txpkt.size = txpkt.size + 3;
-                txpkt.payload[txpkt.size] = '\0';
+                size_t remain = sizeof(txpkt.payload) - (size_t)i;
+                if (remain >= 3) {
+                    /* append 3 chars of time diff */
+                    snprintf((char*)(txpkt.payload + i),  remain, "%s", GW.cfg.time_diff);
+                    txpkt.size = txpkt.size + 3;
+                    if (txpkt.size < sizeof(txpkt.payload)) {
+                        txpkt.payload[txpkt.size] = '\0';
+                    } else {
+                        txpkt.size = sizeof(txpkt.payload) - 1;
+                        txpkt.payload[txpkt.size] = '\0';
+                    }
+                } else {
+                    lgw_log(LOG_WARNING, "%s[PKTS][%s-DOWN] insufficient buffer to append time_diff, skipping append\n", WARNMSG, serv->info.name);
+                }
             }
 
             /*!> free the JSON parse tree from memory */
@@ -1469,10 +1485,14 @@ static void semtech_pull_down(void* arg) {
 
                 lgw_log(LOG_DEBUG, "%s[RELAY][DOWNLINK][PAYLOAD](%d):", DEBUGMSG, txpkt.size);
 
-                for (i = 0, j = 10; i < (txpkt.size < sizeof(payload_to_hex)/2 ? txpkt.size : sizeof(payload_to_hex)/2) ; ++i) {    /*!> pyload */
-                    sprintf(&payload_to_hex[j], "%02x", txpkt.payload[i]);
-                    j += 2;
-                    lgw_log(LOG_DEBUG, "%02x", txpkt.payload[i]);
+                {
+                    int max_bytes = (int)((sizeof(payload_to_hex) - 10) / 2);
+                    int bytes_to_encode = (txpkt.size < max_bytes) ? txpkt.size : max_bytes;
+                    for (i = 0, j = 10; i < bytes_to_encode; ++i) {    /*!> pyload */
+                        sprintf(&payload_to_hex[j], "%02x", txpkt.payload[i]);
+                        j += 2;
+                        lgw_log(LOG_DEBUG, "%02x", txpkt.payload[i]);
+                    }
                 }
                 lgw_log(LOG_DEBUG, "\n%s[RELAY][DOWNLINK][PAYLOAD]\n", DEBUGMSG);
 

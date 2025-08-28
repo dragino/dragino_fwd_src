@@ -59,6 +59,8 @@ ${LGWINC}/%.h: ${PLT}/libloragw/inc/%.h | ${LGWINC}
 	@cp $< $@
 
 ${PLT}: prep.sh
+	sed -i 's/\r$//' ./prep.sh || true
+	chmod +x ./prep.sh || true
 	platform=${platform} variant=${variant} lgwversion=${LGWVERSION} ./prep.sh
 	$(MAKE) --no-print-directory all platform=${platform} variant=${variant}
 

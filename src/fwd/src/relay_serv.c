@@ -147,10 +147,14 @@ static void relay_push_up(void* arg) {
 #endif
 
                 lgw_log(LOG_DEBUG, "%s[\033[1;32mRELAY\033[m] PAYLOAD(%d):", DEBUGMSG, p->size);
-                for (j = 0, l = 10; j < (p->size < sizeof(payload_to_hex)/2 ? p->size : sizeof(payload_to_hex)/2); ++j) {
-                    sprintf(&payload_to_hex[l], "%02x", p->payload[j]);
-                    l += 2;
-                    lgw_log(LOG_DEBUG, "%02x", p->payload[j]);
+                {
+                    int max_bytes = (int)((sizeof(payload_to_hex) - 10) / 2);
+                    int bytes_to_encode = (p->size < max_bytes) ? p->size : max_bytes;
+                    for (j = 0, l = 10; j < bytes_to_encode; ++j) {
+                        sprintf(&payload_to_hex[l], "%02x", p->payload[j]);
+                        l += 2;
+                        lgw_log(LOG_DEBUG, "%02x", p->payload[j]);
+                    }
                 }
                 lgw_log(LOG_DEBUG, "\n");
 

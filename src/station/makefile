@@ -54,7 +54,8 @@ ${BD}/%/makefile : makefile.%
 			echo "include ../../makefile.s2core") > makefile
 
 src/kwcrc.h: build-local/bin/genkwcrcs src/kwlist.txt
-	build-local/bin/genkwcrcs $$(cat src/kwlist.txt | sed -e '/^#/d;s/[ \t]\+#.*//') > build-local/temp-kwcrc.h
+	# Normalize CRLF to LF before generating CRC macros to avoid trailing '_' identifiers
+	build-local/bin/genkwcrcs $$(sed -e 's/\r$$//' -e '/^#/d;s/[ \t]\+#.*//' src/kwlist.txt) > build-local/temp-kwcrc.h
 	mv build-local/temp-kwcrc.h $@
 
 build-local/bin/genkwcrcs: src/genkwcrcs.c src/uj.h

@@ -39,7 +39,12 @@ fwd_sx1301: sx1301hal libmqtt
 fwd_sx1302: sx1302hal libmqtt 
 	$(MAKE) all -e -C build_fwd_sx1302 HP0MOD=1 
 
+
 station_sx1302: sx1302hal 
+	$(MAKE) -C build_station_sx1302 build-local/bin/crc32
+	$(MAKE) -C build_station_sx1302 src/kwcrc.h
+	[ -f build_station_sx1302/deps/mbedtls/prep.sh ] && chmod +x build_station_sx1302/deps/mbedtls/prep.sh || true
+	[ -f build_station_sx1302/deps/smtcpico/prep.sh ] && chmod +x build_station_sx1302/deps/smtcpico/prep.sh || true
 	$(MAKE) all -e -C build_station_sx1302 HP0MOD=1 SX1302MOD=1 
 
 station_sx1301: sx1301hal 
