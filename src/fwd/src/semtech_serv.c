@@ -95,7 +95,7 @@ int semtech_stop(serv_s* serv) {
     char family[128] = {'\0'};
     char status_value[32] = {'\0'};
     LGW_LIST_LOCK(&GW.rxpkts_list);
-    GW.info.service_count++;
+    GW.info.service_count--;
     LGW_LIST_UNLOCK(&GW.rxpkts_list);
     serv->thread.stop_sig = true;
     sem_post(&serv->thread.sema);
