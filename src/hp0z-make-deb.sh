@@ -23,6 +23,15 @@ prepare() {
     [[ -d station ]] && cp -f station/setup.gmk.arm  station/setup.gmk
     [[ ! -d build_station_sx1301 ]] && cp -rf station build_station_sx1301
     [[ ! -d build_station_sx1302 ]] && cp -rf station build_station_sx1302
+    # normalize line endings and ensure exec if present
+    if [[ -f build_station_sx1302/deps/mbedtls/prep.sh ]]; then
+        sed -i 's/\r$//' build_station_sx1302/deps/mbedtls/prep.sh || true
+        chmod +x build_station_sx1302/deps/mbedtls/prep.sh || true
+    fi
+    if [[ -f build_station_sx1302/deps/smtcpico/prep.sh ]]; then
+        sed -i 's/\r$//' build_station_sx1302/deps/smtcpico/prep.sh || true
+        chmod +x build_station_sx1302/deps/smtcpico/prep.sh || true
+    fi
 }
 
 case "$1" in 
@@ -173,6 +182,16 @@ cp -f config/local_conf.json pi_pkg/etc/lora
 cp -rf DEBIAN pi_pkg/
 #cp -rf draginofwd.service pi_pkg/lib/systemd/system
 #cp -rf draginostation.service pi_pkg/lib/systemd/system
+# Ensure maintainer script permissions per dpkg requirements
+[ -f pi_pkg/DEBIAN/preinst ] && sed -i 's/\r$//' pi_pkg/DEBIAN/preinst || true
+[ -f pi_pkg/DEBIAN/postinst ] && sed -i 's/\r$//' pi_pkg/DEBIAN/postinst || true
+[ -f pi_pkg/DEBIAN/prerm ] && sed -i 's/\r$//' pi_pkg/DEBIAN/prerm || true
+[ -f pi_pkg/DEBIAN/postrm ] && sed -i 's/\r$//' pi_pkg/DEBIAN/postrm || true
+[ -f pi_pkg/DEBIAN/preinst ] && chmod 755 pi_pkg/DEBIAN/preinst || true
+[ -f pi_pkg/DEBIAN/postinst ] && chmod 755 pi_pkg/DEBIAN/postinst || true
+[ -f pi_pkg/DEBIAN/prerm ] && chmod 755 pi_pkg/DEBIAN/prerm || true
+[ -f pi_pkg/DEBIAN/postrm ] && chmod 755 pi_pkg/DEBIAN/postrm || true
+[ -f pi_pkg/DEBIAN/control ] && chmod 644 pi_pkg/DEBIAN/control || true
 sed 's/bin\/fwd/bin\/'$FWDTarget'/g' draginofwd.service > pi_pkg/lib/systemd/system/draginofwd.service
 sed 's/ExecStart\=station/ExecStart\='$STATIONTarget'/g; s/ExecStopPost\=station/ExecStopPost\='$STATIONTarget'/g' draginostation.service > pi_pkg/lib/systemd/system/draginostation.service
 

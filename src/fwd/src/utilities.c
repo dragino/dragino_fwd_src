@@ -132,9 +132,11 @@ static uint8_t hex2int(char c) {
 void bin2hex (char *in, char *out, int len) {
     char *ptr = out;
     while (len--) {
-        sprintf(ptr, "%02x", *in++);
+        /* ensure we do not overflow caller buffer: caller must allocate at least 2*len + 1 */
+        sprintf(ptr, "%02x", (unsigned char)(*in++));
         ptr += 2;
     }
+    *ptr = '\0';
 }
 
 void hex2str(uint8_t* hex, uint8_t* str, uint8_t len) {

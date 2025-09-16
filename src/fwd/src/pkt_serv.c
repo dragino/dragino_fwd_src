@@ -155,12 +155,12 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
         else
             txpkt.count_us = us + 1000000UL; /*!> rx1 window plus 1s */
         /*!> 这个key重启将会删除, 下发的计数器 */
-        sprintf(db_family, "/downlink/%08X", devinfo->devaddr);
+        snprintf(db_family, sizeof(db_family), "/downlink/%08X", devinfo->devaddr);
         if (lgw_db_get(db_family, "fcnt", tmpstr, sizeof(tmpstr)) == -1) {
             lgw_db_put(db_family, "fcnt", "1");
         } else { 
             dwfcnt = atol(tmpstr);
-            sprintf(tmpstr, "%u", dwfcnt + 1);
+            snprintf(tmpstr, sizeof(tmpstr), "%u", dwfcnt + 1);
             lgw_db_put(db_family, "fcnt", tmpstr);
         }
 
@@ -522,7 +522,7 @@ static void thread_pkt_deal_up(void* arg) {
                                   .appskey_str = {0},
                                   .nwkskey_str = {0}
                                 };
-            sprintf(db_family, "devinfo/%08X", devinfo.devaddr);
+            snprintf(db_family, sizeof(db_family), "devinfo/%08X", devinfo.devaddr);
             if ((lgw_db_get(db_family, "appskey", devinfo.appskey_str, sizeof(devinfo.appskey_str)) == -1) || 
                 (lgw_db_get(db_family, "nwkskey", devinfo.nwkskey_str, sizeof(devinfo.nwkskey_str)) == -1)) {
                 continue;
@@ -595,7 +595,7 @@ static void thread_pkt_deal_up(void* arg) {
                     if (NULL == fp)
                         lgw_log(LOG_WARNING, "%s[DECODE] Fail to open path: %s\n", WARNMSG, pushpath);
                     else { 
-                        sprintf(rssi_snr, "%08X%08X", (short)p->rssic, (short)(p->snr*10));
+                        snprintf(rssi_snr, sizeof(rssi_snr), "%08X%08X", (short)p->rssic, (short)(p->snr*10));
                         fwrite(rssi_snr, sizeof(char), 16, fp);
                         fwrite(payload_txt, sizeof(uint8_t), fsize, fp);
                         fflush(fp); 
@@ -605,13 +605,13 @@ static void thread_pkt_deal_up(void* arg) {
                 }
 
                 if (GW.cfg.mac2db) { /*!> 每个devaddr最多保存10个payload */
-                    sprintf(db_family, "/payload/%08X", devinfo.devaddr);
+                    snprintf(db_family, sizeof(db_family), "/payload/%08X", devinfo.devaddr);
                     if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
                         lgw_db_put(db_family, "index", "0");
                     } else 
                         j = atoi(tmpstr) % 9;
-                    sprintf(db_family, "/payload/%08X/%d", devinfo.devaddr, j);
-                    sprintf(db_key, "%u", p->count_us);
+                    snprintf(db_family, sizeof(db_family), "/payload/%08X/%d", devinfo.devaddr, j);
+                    snprintf(db_key, sizeof(db_key), "%u", p->count_us);
                     lgw_db_put(db_family, db_key, (char*)payload_txt);
                 }
             }
@@ -1017,9 +1017,13 @@ static int strcpypt(char* dest, const char* src, int* start, int size, int len)
 {
     int i, j;
 
+    if (dest == NULL || src == NULL || start == NULL || size <= 0 || len <= 0) {
+        return 0;
+    }
+
     i = *start;
     
-    while (src[i] == ' ' && i < size) {
+    while (i < size && src[i] == ' ') {
         i++;
     }
 

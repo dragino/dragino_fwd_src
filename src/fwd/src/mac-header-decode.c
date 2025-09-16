@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "fwd.h"
 #include "loragw_hal.h"
@@ -24,6 +25,12 @@ LoRaMacParserStatus_t LoRaMacParserData( LoRaMacMessageData_t* macMsg )
             return LORAMAC_PARSER_SUCCESS;
             break;
         case FRAME_TYPE_JOIN_REQ: 
+            /* Ensure buffer is large enough to read up to index 16 (DevEUI end). */
+            if (macMsg->BufSize < 17) {
+                return LORAMAC_PARSER_FAIL;
+            }
+            macMsg->AppEUI[0] = '\0';
+            macMsg->DevEUI[0] = '\0';
             for (bufItr = 8; bufItr > 0; bufItr--) {  //APPEUI
                 sprintf(cat, "%02X", macMsg->Buffer[bufItr]);
                 strcat(macMsg->AppEUI, cat);
