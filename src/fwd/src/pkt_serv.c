@@ -448,13 +448,7 @@ static void thread_pkt_deal_up(void* arg) {
                 continue; /*!> skip that packet */
         }
         
-        /* MHDR: 1byte; FHDR: 7byte ; FPORT: 1byte;  MIC: 4byte , total: 13 */
-        fsize = p->size - 13; 
-
-        if (fsize < 1) {
-            lgw_log(LOG_DEBUG, "%s[DECODE] frmpayload (fsize=%d) not match!\n", DEBUGMSG, fsize);
-            continue;
-        }
+        /* fsize will be calculated after MAC parsing to get correct FOptsLen */
 
         /*!>for G2G(relay) 
          ** Receive downlink from other GW **
@@ -498,6 +492,14 @@ static void thread_pkt_deal_up(void* arg) {
 
         if (LORAMAC_PARSER_SUCCESS != LoRaMacParserData(&macmsg))    /*!> MAC decode */
             continue;
+
+        /* 计算FRMPayload大小: 总长度 - MHDR(1) - DevAddr(4) - FCtrl(1) - FCnt(2) - FOpts(FOptsLen) - FPort(1) - MIC(4) */
+        fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
+
+        if (fsize < 1) {
+            lgw_log(LOG_DEBUG, "%s[DECODE] frmpayload (fsize=%d) not match! FOptsLen=%d\n", DEBUGMSG, fsize, macmsg.FHDR.FCtrl.Bits.FOptsLen);
+            continue;
+        }
 
         if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || 
             serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER ||
