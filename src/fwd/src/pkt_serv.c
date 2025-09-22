@@ -77,9 +77,10 @@ static uint8_t rx2bw;
 static uint8_t rx2dr;
 static uint32_t rx2freq;
 
-static char db_family[32] = {'\0'};
-static char db_key[32] = {'\0'};
-static char tmpstr[16] = {'\0'};
+/*!> Thread-local storage for database operations 
+ * Removed global shared buffers (db_family, db_key, tmpstr) to fix thread safety issues
+ * Each thread now uses local variables to avoid data races between RX and downlink threads
+ */
 
 LGW_LIST_HEAD_STATIC(dn_list, _dn_pkt); // downlink for customer
 
@@ -155,6 +156,9 @@ static enum jit_error_e custom_rx2dn(dn_pkt_s* dnelem, devinfo_s *devinfo, uint3
         else
             txpkt.count_us = us + 1000000UL; /*!> rx1 window plus 1s */
         /*!> 这个key重启将会删除, 下发的计数器 */
+        /*!> Thread-safe: use local buffers instead of global shared ones */
+        char db_family[32];
+        char tmpstr[16];
         snprintf(db_family, sizeof(db_family), "/downlink/%08X", devinfo->devaddr);
         if (lgw_db_get(db_family, "fcnt", tmpstr, sizeof(tmpstr)) == -1) {
             lgw_db_put(db_family, "fcnt", "1");
@@ -236,7 +240,7 @@ static void prepare_frame(dn_pkt_s* dnelem, devinfo_s* devinfo, uint32_t downcnt
     if (dnelem->optlen && (NULL != dnelem->fopt)) {
 	    ++index;
         lgw_memcpy(frame + index, dnelem->fopt, dnelem->optlen);
-        lgw_free(dnelem->fopt); 
+        /*!> Note: fopt memory is managed by caller, not freed here */
 	    index = index + dnelem->optlen - 1;
     }
 
@@ -448,13 +452,7 @@ static void thread_pkt_deal_up(void* arg) {
                 continue; /*!> skip that packet */
         }
         
-        /* MHDR: 1byte; FHDR: 7byte ; FPORT: 1byte;  MIC: 4byte , total: 13 */
-        fsize = p->size - 13; 
-
-        if (fsize < 1) {
-            lgw_log(LOG_DEBUG, "%s[DECODE] frmpayload (fsize=%d) not match!\n", DEBUGMSG, fsize);
-            continue;
-        }
+        /* fsize will be calculated after MAC parsing to get correct FOptsLen */
 
         /*!>for G2G(relay) 
          ** Receive downlink from other GW **
@@ -499,6 +497,14 @@ static void thread_pkt_deal_up(void* arg) {
         if (LORAMAC_PARSER_SUCCESS != LoRaMacParserData(&macmsg))    /*!> MAC decode */
             continue;
 
+        /* 计算FRMPayload大小: 总长度 - MHDR(1) - DevAddr(4) - FCtrl(1) - FCnt(2) - FOpts(FOptsLen) - FPort(1) - MIC(4) */
+        fsize = p->size - 13 - macmsg.FHDR.FCtrl.Bits.FOptsLen; 
+
+        if (fsize < 1) {
+            lgw_log(LOG_DEBUG, "%s[DECODE] frmpayload (fsize=%d) not match! FOptsLen=%d\n", DEBUGMSG, fsize, macmsg.FHDR.FCtrl.Bits.FOptsLen);
+            continue;
+        }
+
         if (serv->filter.fport != NOFILTER || serv->filter.devaddr != NOFILTER || 
             serv->filter.nwkid != NOFILTER || serv->filter.deveui != NOFILTER ||
             serv->filter.joineui != NOFILTER) {
@@ -522,6 +528,7 @@ static void thread_pkt_deal_up(void* arg) {
                                   .appskey_str = {0},
                                   .nwkskey_str = {0}
                                 };
+            char db_family[32];
             snprintf(db_family, sizeof(db_family), "devinfo/%08X", devinfo.devaddr);
             if ((lgw_db_get(db_family, "appskey", devinfo.appskey_str, sizeof(devinfo.appskey_str)) == -1) || 
                 (lgw_db_get(db_family, "nwkskey", devinfo.nwkskey_str, sizeof(devinfo.nwkskey_str)) == -1)) {
@@ -605,6 +612,9 @@ static void thread_pkt_deal_up(void* arg) {
                 }
 
                 if (GW.cfg.mac2db) { /*!> 每个devaddr最多保存10个payload */
+                    char db_family[32];
+                    char db_key[32];
+                    char tmpstr[16];
                     snprintf(db_family, sizeof(db_family), "/payload/%08X", devinfo.devaddr);
                     if (lgw_db_get(db_family, "index", tmpstr, sizeof(tmpstr)) == -1) {
                         lgw_db_put(db_family, "index", "0");
@@ -619,6 +629,7 @@ static void thread_pkt_deal_up(void* arg) {
             if (GW.cfg.custom_downlink) {
                 /*!> Customer downlink process */
                 dn_pkt_s* dnelem = NULL;
+                char tmpstr[16];
                 sprintf(tmpstr, "%08X", devinfo.devaddr);
                 dnelem = search_dn_list(tmpstr);
                 if (dnelem != NULL) {
@@ -937,6 +948,7 @@ static void pkt_prepare_downlink(void* arg) {
                                           .nwkskey_str = {0}
                                         };
 
+                    char db_family[32];
                     sprintf(db_family, "devinfo/%08X", devinfo.devaddr);
 
                     if ((lgw_db_get(db_family, "appskey", devinfo.appskey_str, sizeof(devinfo.appskey_str)) == -1) || 
