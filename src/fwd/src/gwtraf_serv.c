@@ -149,11 +149,15 @@ static void gwtraf_push_up(void* arg) {
 
         strt = buff_index;
 
-        /*!> serialize one Lora packet metadata and payload */
+        /*!> serialize Lora packet metadata and payload 
+         * JSON structure: {"type":"uplink","gw":"...","time":"...","rxpk":[{...},{...}]}
+         * Each packet is wrapped in {} with proper comma separation
+         */
+        int valid_pkt_count = 0;
         for (i = 0; i < nb_pkt; i++) {
             p = &serv_ct->rxpkt[i];
 
-            buff_index = strt;
+            int start_index = buff_index;
 
             /*!> basic packet filtering */
             switch (p->status) {
@@ -202,7 +206,13 @@ static void gwtraf_push_up(void* arg) {
             }
 
             /*!> RAW timestamp, 8-17 useful chars */
-            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE - buff_index, "\"tmst\":%u", p->count_us);
+            if (valid_pkt_count > 0) {
+                /*!> Add comma separator for subsequent packets */
+                j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE - buff_index, ",{\"tmst\":%u", p->count_us);
+            } else {
+                /*!> Start first packet JSON object */
+                j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE - buff_index, "{\"tmst\":%u", p->count_us);
+            }
             if (j > 0) {
                 buff_index += j;
             } else {
@@ -374,29 +384,38 @@ static void gwtraf_push_up(void* arg) {
             /*!> End of packet serialization */
             buff_up[buff_index] = '}';
             ++buff_index;
-
-            /*!> end of JSON datagram payload */
-            buff_up[buff_index] = 0;	/*!> add string terminator, for safety */
-
-            lgw_log(LOG_INFO, "\n[%s] gwtraf up: %s\n", serv->info.name, (char *)(buff_up + 12));	/*!> DEBUG: display JSON payload */
-            retry = 0;
-            while (serv->net->sock_up == -1) {
-                serv->net->sock_up = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
-                if (serv->net->sock_up == -1 && retry < DEFAULT_TRY_TIMES) {
-                    lgw_log(LOG_WARNING, "[WARNING~][%s-up] make socket init error, try again!\n", serv->info.name);
-                    wait_ms(DEFAULT_FETCH_SLEEP_MS);
-                    retry++;
-                    continue;
-                } else
-                    break;
-            }
-
-            if (serv->net->sock_up == -1)
-                continue;
-
-            /*!> send datagram to servers sequentially */
-            send(serv->net->sock_up, (void *)buff_up, buff_index, 0);
+            valid_pkt_count++;
         }
+
+        /*!> Send the complete JSON after processing all packets */
+        if (valid_pkt_count > 0) {
+            /*!> Close the rxpk array and main JSON object, format: ]} */
+            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE - buff_index, "]}");
+            if (j > 0) {
+                buff_index += j;
+                buff_up[buff_index] = 0; // null terminate
+                
+                lgw_log(LOG_INFO, "\n[%s] gwtraf up: %s\n", serv->info.name, (char *)(buff_up + 12));
+                
+                retry = 0;
+                while (serv->net->sock_up == -1) {
+                    serv->net->sock_up = init_sock((char*)&serv->net->addr, (char*)&serv->net->port_up, (void*)&serv->net->push_timeout_half, sizeof(struct timeval));
+                    if (serv->net->sock_up == -1 && retry < DEFAULT_TRY_TIMES) {
+                        lgw_log(LOG_WARNING, "[WARNING~][%s-up] make socket init error, try again!\n", serv->info.name);
+                        wait_ms(DEFAULT_FETCH_SLEEP_MS);
+                        retry++;
+                        continue;
+                    } else
+                        break;
+                }
+                
+                if (serv->net->sock_up != -1) {
+                    /*!> send datagram to servers sequentially */
+                    send(serv->net->sock_up, (void *)buff_up, buff_index, 0);
+                }
+            }
+        }
+        
         lgw_free(serv_ct);
 	}
     lgw_log(LOG_INFO, "[INFO~][THREAD][%s] ENDed!\n", serv->info.name);
