@@ -712,6 +712,9 @@ int import_devskey(void *notuse, int argc, char **value, char **name)
     snprintf(sql, sizeof(sql), "INSERT OR REPLACE INTO gwdb VALUES ('/devinfo/%s/%s', '%s')", value[0], name[1], value[1]);
     db_exec_sql(sql, NULL, NULL);
 
+    snprintf(sql, sizeof(sql), "INSERT OR REPLACE INTO gwdb VALUES ('/devinfo/%s/%s', '%s')", value[0], name[2], value[2]);
+    db_exec_sql(sql, NULL, NULL);
+
     return 0;
 }
 

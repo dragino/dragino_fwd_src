@@ -888,7 +888,7 @@ static void thread_up(void) {
             nb_pkt = ghost_get(NB_PKT_MAX - nb_pkt, &rxpkt[nb_pkt]) + nb_pkt;
 
         if (GW.cfg.delay_enabled == true)
-            nb_pkt = delay_pkt_get(10 - nb_pkt, &rxpkt[nb_pkt]) + nb_pkt;
+            nb_pkt = delay_pkt_get(NB_PKT_MAX - nb_pkt, &rxpkt[nb_pkt]) + nb_pkt;  
 
         /*!> wait a short time if no packets, nor status report */
         if (nb_pkt == 0) {

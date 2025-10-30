@@ -102,8 +102,32 @@ void usage(void) {
     printf( "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" );
     printf(" --fdd         Enable Full-Duplex mode (CN490 reference design)\n");
     printf( "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" );
-    printf(" --au915       AU915 band enable\n");
-    printf(" --interval <uint> waitms for sendtx interval\n");
+    printf( " --au915       AU915 band enable\n" );
+    printf( " --interval <uint> waitms for sendtx interval\n");
+    printf( " --payload <hex>  Custom payload in hex format (without 0x prefix)\n" );
+}
+
+/* convert hex string to byte array */
+static int hexstr_to_bytes(const char *hexstr, uint8_t *bytes, int max_bytes)
+{
+    int len = strlen(hexstr);
+    int i, j = 0;
+    
+    if (len % 2 != 0) {
+        return -1; /* Hex string length must be even */
+    }
+    
+    if (len / 2 > max_bytes) {
+        return -2; /* Hex string too long for buffer */
+    }
+    
+    for (i = 0; i < len; i += 2) {
+        uint8_t high = hexstr[i] >= 'A' ? hexstr[i] - 'A' + 10 : hexstr[i] - '0';
+        uint8_t low = hexstr[i+1] >= 'A' ? hexstr[i+1] - 'A' + 10 : hexstr[i+1] - '0';
+        bytes[j++] = (high << 4) | low;
+    }
+    
+    return j; /* Return number of bytes converted */
 }
 
 /* handle signals */
@@ -164,6 +188,8 @@ int main(int argc, char **argv)
     int remain_band = 0;
     int random_index = 0;
     uint16_t interval = 5;
+    char custom_payload[512] = ""; /* Hex string for custom payload */
+    bool use_custom_payload = false;
 
     /* SPI interfaces */
     const char com_path_default[] = COM_PATH_DEFAULT;
@@ -191,6 +217,7 @@ int main(int argc, char **argv)
         {"nhdr", no_argument, 0, 0},
         {"fdd",  no_argument, 0, 0},
         {"au915", no_argument, 0, 0},
+        {"payload", required_argument, 0, 0},
         {0, 0, 0, 0}
     };
 
@@ -434,6 +461,12 @@ int main(int argc, char **argv)
                     full_duplex = true;
                 } else if (strcmp(long_options[option_index].name, "au915") == 0) {
                     au915_band = true;
+                } else if (strcmp(long_options[option_index].name, "payload") == 0) {
+                    if (optarg != NULL) {
+                        strncpy(custom_payload, optarg, sizeof(custom_payload) - 1);
+                        custom_payload[sizeof(custom_payload) - 1] = '\0';
+                        use_custom_payload = true;
+                    }
                 } else {
                     printf("ERROR: argument parsing options. Use -h to print help\n");
                     return EXIT_FAILURE;
@@ -574,17 +607,37 @@ int main(int argc, char **argv)
                 pkt.invert_pol = invert_pol;
                 pkt.preamble = preamble;
                 pkt.no_header = no_header;
-                pkt.payload[0] = 0x40; /* Confirmed Data Up */
-                pkt.payload[1] = 0xAB;
-                pkt.payload[2] = 0xAB;
-                pkt.payload[3] = 0xAB;
-                pkt.payload[4] = 0xAB;
-                pkt.payload[5] = 0x00; /* FCTrl */
-                pkt.payload[6] = 0; /* FCnt */
-                pkt.payload[7] = 0; /* FCnt */
-                pkt.payload[8] = 0x02; /* FPort */
-                for (i = 9; i < 255; i++) {
-                    pkt.payload[i] = i;
+                if (use_custom_payload) {
+                    int payload_len = hexstr_to_bytes(custom_payload, &pkt.payload[9], 246); /* 255-9=246 bytes available for custom payload */
+                    if (payload_len > 0) {
+                        pkt.payload[0] = 0x40; /* Confirmed Data Up */
+                        pkt.payload[1] = 0xAB;
+                        pkt.payload[2] = 0xAB;
+                        pkt.payload[3] = 0xAB;
+                        pkt.payload[4] = 0xAB;
+                        pkt.payload[5] = 0x00; /* FCTrl */
+                        pkt.payload[6] = 0; /* FCnt */
+                        pkt.payload[7] = 0; /* FCnt */
+                        pkt.payload[8] = 0x02; /* FPort */
+                        pkt.size = 9 + payload_len; /* Header + custom payload */
+                        printf("Using custom payload: %s (length: %d bytes)\n", custom_payload, payload_len);
+                    } else {
+                        printf("ERROR: Invalid custom payload format\n");
+                        return EXIT_FAILURE;
+                    }
+                } else {
+                    pkt.payload[0] = 0x40; /* Confirmed Data Up */
+                    pkt.payload[1] = 0xAB;
+                    pkt.payload[2] = 0xAB;
+                    pkt.payload[3] = 0xAB;
+                    pkt.payload[4] = 0xAB;
+                    pkt.payload[5] = 0x00; /* FCTrl */
+                    pkt.payload[6] = 0; /* FCnt */
+                    pkt.payload[7] = 0; /* FCnt */
+                    pkt.payload[8] = 0x02; /* FPort */
+                    for (i = 9; i < 255; i++) {
+                        pkt.payload[i] = i;
+                    }
                 }
 
                 for (i = 0; i < (int)nb_pkt; i++) {
@@ -618,7 +671,9 @@ int main(int argc, char **argv)
                             break;
                     }
 
-                    pkt.size = (size == 0) ? (uint8_t)RAND_RANGE(9, 255) : size;
+                    if (!use_custom_payload) {
+                        pkt.size = (size == 0) ? (uint8_t)RAND_RANGE(9, 255) : size;
+                    }
 
                     pkt.payload[6] = (uint8_t)(i >> 0); /* FCnt */
                     pkt.payload[7] = (uint8_t)(i >> 8); /* FCnt */
@@ -677,17 +732,37 @@ int main(int argc, char **argv)
             pkt.invert_pol = invert_pol;
             pkt.preamble = preamble;
             pkt.no_header = no_header;
-            pkt.payload[0] = 0x40; /* Confirmed Data Up */
-            pkt.payload[1] = 0xAB;
-            pkt.payload[2] = 0xAB;
-            pkt.payload[3] = 0xAB;
-            pkt.payload[4] = 0xAB;
-            pkt.payload[5] = 0x00; /* FCTrl */
-            pkt.payload[6] = 0; /* FCnt */
-            pkt.payload[7] = 0; /* FCnt */
-            pkt.payload[8] = 0x02; /* FPort */
-            for (i = 9; i < 255; i++) {
-                pkt.payload[i] = i;
+            if (use_custom_payload) {
+                int payload_len = hexstr_to_bytes(custom_payload, &pkt.payload[9], 246); /* 255-9=246 bytes available for custom payload */
+                if (payload_len > 0) {
+                    pkt.payload[0] = 0x40; /* Confirmed Data Up */
+                    pkt.payload[1] = 0xAB;
+                    pkt.payload[2] = 0xAB;
+                    pkt.payload[3] = 0xAB;
+                    pkt.payload[4] = 0xAB;
+                    pkt.payload[5] = 0x00; /* FCTrl */
+                    pkt.payload[6] = 0; /* FCnt */
+                    pkt.payload[7] = 0; /* FCnt */
+                    pkt.payload[8] = 0x02; /* FPort */
+                    pkt.size = 9 + payload_len; /* Header + custom payload */
+                    printf("Using custom payload: %s (length: %d bytes)\n", custom_payload, payload_len);
+                } else {
+                    printf("ERROR: Invalid custom payload format\n");
+                    return EXIT_FAILURE;
+                }
+            } else {
+                pkt.payload[0] = 0x40; /* Confirmed Data Up */
+                pkt.payload[1] = 0xAB;
+                pkt.payload[2] = 0xAB;
+                pkt.payload[3] = 0xAB;
+                pkt.payload[4] = 0xAB;
+                pkt.payload[5] = 0x00; /* FCTrl */
+                pkt.payload[6] = 0; /* FCnt */
+                pkt.payload[7] = 0; /* FCnt */
+                pkt.payload[8] = 0x02; /* FPort */
+                for (i = 9; i < 255; i++) {
+                    pkt.payload[i] = i;
+                }
             }
 
             for (i = 0; i < (int)nb_pkt; i++) {
@@ -721,7 +796,9 @@ int main(int argc, char **argv)
                         break;
                 }
 
-                pkt.size = (size == 0) ? (uint8_t)RAND_RANGE(9, 255) : size;
+                if (!use_custom_payload) {
+                    pkt.size = (size == 0) ? (uint8_t)RAND_RANGE(9, 255) : size;
+                }
 
                 pkt.payload[6] = (uint8_t)(i >> 0); /* FCnt */
                 pkt.payload[7] = (uint8_t)(i >> 8); /* FCnt */

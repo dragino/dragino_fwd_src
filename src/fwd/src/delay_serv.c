@@ -247,6 +247,12 @@ static void delay_package_thread(void* arg) {
                 lgw_free(serv_ct);
                 break;
             }
+            
+            p = &serv_ct->rxpkt[0];
+            if (p->if_chain == IF_DELAY) {
+                lgw_free(serv_ct);
+                continue;
+            }
 
             for (i = 0; i < serv_ct->nb_pkt; i++) {
                 p = &serv_ct->rxpkt[i];
